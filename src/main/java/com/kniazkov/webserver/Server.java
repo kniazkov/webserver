@@ -50,12 +50,12 @@ public final class Server {
 		public void run() {
 			ServerSocket ss = null;
 			try {
-		        ss = new ServerSocket(opt.port);
-		        ExecutorService pool = Executors.newFixedThreadPool(opt.threadCount);
+		        ss = new ServerSocket(opt.getPort());
+		        ExecutorService pool = Executors.newFixedThreadPool(opt.getThreadCount());
 		        while (work)
 		        {
 		            Socket s = ss.accept();
-		            pool.submit(new Processor(s, opt.wwwRoot, handler));
+		            pool.submit(new Processor(s, opt.getWwwRoot(), handler));
 		        }
 		        pool.shutdownNow();
 			}

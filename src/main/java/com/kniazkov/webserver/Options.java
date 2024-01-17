@@ -1,13 +1,15 @@
 package com.kniazkov.webserver;
 
-public class Options {
-	public int port;
-	public String wwwRoot;
-	public int threadCount;
-	
-	public Options() {
-		port = 8000;
-		wwwRoot = "./www";
-		threadCount = 16;
+public interface Options {
+	default int getPort() {
+		return 8000;
+	}
+
+	default String getWwwRoot() {
+		return "./www";
+	}
+
+	default int getThreadCount() {
+		return 16;
 	}
 }

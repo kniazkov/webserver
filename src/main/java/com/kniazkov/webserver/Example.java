@@ -4,8 +4,12 @@ import java.util.Map;
 
 public class Example {
     public static void main(String[] args) {
-        Options opt = new Options();
-        opt.wwwRoot = "./example";
+        Options opt = new Options(){
+            @Override
+            public String getWwwRoot() {
+                return "./example";
+            }
+        };
 
         Handler handler = new Handler() {
             @Override
