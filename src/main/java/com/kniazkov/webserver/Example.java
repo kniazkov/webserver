@@ -19,6 +19,20 @@ public class Example {
 
             @Override
             public Response handle(String address) {
+                if (address.equals("/test")) {
+                    return new Response() {
+                        @Override
+                        public String getContentType() {
+                            return "text/html";
+                        }
+
+                        @Override
+                        public byte[] getData() {
+                            String html = "<html><body><h1>Test page</h1><p>It works.</p></body></html>";
+                            return html.getBytes();
+                        }
+                    };
+                }
                 return null;
             }
         };
