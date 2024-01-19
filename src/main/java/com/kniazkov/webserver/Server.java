@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
@@ -78,33 +79,57 @@ public final class Server {
 	}
 	
     private static class Processor implements Runnable {
-    	private enum Method {
-    		UNKNOWN,
-    		GET,
-    		POST
-    	}
 
         private Processor(Socket socket, String wwwRoot, Handler handler) {
         	this.socket = socket;
         	this.wwwRoot = wwwRoot;
         	this.handler = handler;
-        	this.method = Method.UNKNOWN;
         }
 
         private Socket socket;
         private String wwwRoot;
         private Handler handler;
-        private String address;
-        private Method method;
         private int contentLength;
         private String postData;
         private String boundary;
 
+		public void run() {
+			try {
+				final StreamReader reader = new StreamReader(socket.getInputStream());
+				final Request request = new Request();
+
+				String line = reader.readLine();
+				while (line.length() > 0) {
+					if (line.startsWith("GET")) {
+						int index = line.indexOf("HTTP");
+						if (index != -1)
+							request.address = line.substring(4,  index - 1);
+						request.method = Method.GET;
+					}
+					else if (line.startsWith("POST")) {
+						int index = line.indexOf("HTTP");
+						if (index != -1)
+							request.address = line.substring(5,  index - 1);
+						request.method = Method.POST;
+					}
+					line = reader.readLine();
+				}
+
+				Response response = new ResponseText("F*ck you.");
+				writeResponse("200 OK", response.getContentType(), response.getData());
+
+			} catch (Throwable e) {
+				throw new RuntimeException(e);
+			}
+		}
+
+		/*
         public void run() {
             try {
+
             	writeResponse("102 Processing", null, null);
             	
-                BufferedReader buff = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                BufferedReader buff = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
                 while(true)
                 {
                     String s = buff.readLine();
@@ -288,6 +313,7 @@ public final class Server {
                 }
             }
         }
+		 */
 
         private void writeResponse(String code, String type, byte[] data) throws Throwable {
         	OutputStream stream = socket.getOutputStream();
