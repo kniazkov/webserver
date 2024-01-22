@@ -133,6 +133,7 @@ public final class Server {
 				}
 				else if (request.method == Method.POST) {
 					reader.setLimit(contentLength);
+					reader.setBoundary("--" + boundary);
 				}
 
 				if (request.method == Method.GET || (request.method == Method.POST && boundary.length() == 0)) {
@@ -161,6 +162,14 @@ public final class Server {
 							}
 						}
 					}
+				}
+				else if (boundary.length() > 0) {
+					do {
+						String item = reader.readLineToBoundary();
+						item = reader.readLineToBoundary();
+						item = reader.readLineToBoundary();
+						break;
+					} while (false);
 				}
 
 				Response response = handler.handle(request);
