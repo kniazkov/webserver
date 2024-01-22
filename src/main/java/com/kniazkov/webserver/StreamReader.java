@@ -14,31 +14,34 @@ class StreamReader {
 
     private int available;
 
-    private int count;
+    private int limit;
 
     StreamReader(InputStream stream) {
         this.stream = stream;
         this.buff = new byte[BUFF_SIZE];
         this.offset = 0;
         this.available = 0;
-        this.count = 0;
+        this.limit = Integer.MAX_VALUE; // unlimited
     }
 
     String readLine() throws IOException {
         StringBuilder builder = new StringBuilder();
         int ch = read();
-        while (ch >= 0 && ch != 13) {
+        while (ch >= 0 && ch != 10) {
             builder.append((char)ch);
             ch = read();
         }
         return builder.toString().trim();
     }
 
-    int getCount() {
-        return count;
+    void setLimit(int value) {
+        limit = value;
     }
 
     private int read() throws IOException {
+        if (limit < 1) {
+            return -1;
+        }
         if (available == 0) {
             available = stream.read(buff);
             if (available == 0) {
@@ -46,7 +49,7 @@ class StreamReader {
             }
             offset = 0;
         }
-        count++;
+        limit--;
         available--;
         return (int)buff[offset++];
     }

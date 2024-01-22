@@ -51,12 +51,12 @@ public final class Server {
 		public void run() {
 			ServerSocket ss = null;
 			try {
-		        ss = new ServerSocket(opt.getPort());
-		        ExecutorService pool = Executors.newFixedThreadPool(opt.getThreadCount());
+		        ss = new ServerSocket(opt.port);
+		        ExecutorService pool = Executors.newFixedThreadPool(opt.threadCount);
 		        while (work)
 		        {
 		            Socket s = ss.accept();
-		            pool.submit(new Processor(s, opt.getWwwRoot(), handler));
+		            pool.submit(new Processor(s, opt.wwwRoot, handler));
 		        }
 		        pool.shutdownNow();
 			}
@@ -86,17 +86,16 @@ public final class Server {
         	this.handler = handler;
         }
 
-        private Socket socket;
-        private String wwwRoot;
-        private Handler handler;
-        private int contentLength;
-        private String postData;
-        private String boundary;
+        private final Socket socket;
+        private final String wwwRoot;
+        private final Handler handler;
 
 		public void run() {
 			try {
 				final StreamReader reader = new StreamReader(socket.getInputStream());
 				final Request request = new Request();
+				int contentLength = 0;
+				String boundary = "";
 
 				String line = reader.readLine();
 				while (line.length() > 0) {
@@ -112,14 +111,119 @@ public final class Server {
 							request.address = line.substring(5,  index - 1);
 						request.method = Method.POST;
 					}
+					else if (line.startsWith("Content-Length:")) {
+						try {
+							contentLength = Integer.parseInt(line.substring(16));
+						}
+						catch(NumberFormatException ignored) {
+							writeResponse("500 Internal Server Error", null, null);
+							return;
+						}
+					}
+					else if (line.startsWith("Content-Type: multipart/form-data;")) {
+						int index = line.indexOf("boundary=");
+						if (index != -1)
+							boundary = line.substring(index + 9);
+					}
 					line = reader.readLine();
 				}
 
-				Response response = new ResponseText("F*ck you.");
-				writeResponse("200 OK", response.getContentType(), response.getData());
+				if (request.method == Method.UNKNOWN) {
+					writeResponse("200 OK", "text/javascript", null);
+				}
+				else if (request.method == Method.POST) {
+					reader.setLimit(contentLength);
+				}
 
-			} catch (Throwable e) {
-				throw new RuntimeException(e);
+				if (request.method == Method.GET || (request.method == Method.POST && boundary.length() == 0)) {
+					String data = "";
+					if (request.method == Method.GET) {
+						final int index = request.address.indexOf('?');
+						if (index >= 0) {
+							data = request.address.substring(index + 1);
+						}
+					}
+					else {
+						data = reader.readLine();
+					}
+					if (data.length() > 0) {
+						for (final String item : data.split("&")) {
+							if (item != null && !item.equals("")) {
+								final String[] pair = item.split("=");
+								if (pair.length == 1 || pair.length == 2) {
+									final String key = URLDecoder.decode(pair[0], "UTF-8");
+									String value = "";
+									if (pair.length == 2) {
+										value = URLDecoder.decode(pair[1], "UTF-8");
+									}
+									request.formData.put(key, value);
+								}
+							}
+						}
+					}
+				}
+
+				Response response = handler.handle(request);
+				if (response != null) {
+					writeResponse("200 OK", response.getContentType(), response.getData());
+				} else {
+					if (request.address.startsWith("/?")) {
+						writeResponse("500 Internal Server Error", null, null);
+					} else {
+						String path = request.address;
+						int index = path.indexOf('?');
+						if (index >= 0)
+							path = path.substring(0, index);
+						if (path.equals("/")) {
+							path = "/index.html";
+						} else {
+							path = URLDecoder.decode(path, "UTF-8");
+						}
+						try {
+							File file = new File(wwwRoot + path);
+							if (file.exists()) {
+								byte[] content = Files.readAllBytes(file.toPath());
+								String extension = "";
+								index = path.lastIndexOf('.');
+								if (index > 0)
+									extension = path.substring(index + 1).toLowerCase();
+								String type = "application/unknown";
+								if (extension.length() > 0) {
+									switch(extension)
+									{
+										case "htm":
+										case "html":
+											type = "text/html";
+											break;
+										case "css":
+											type = "text/css";
+											break;
+										case "js":
+											type = "text/javascript";
+											break;
+										case "jpg":
+										case "jpeg":
+										case "png":
+										case "gif":
+											type = "image/" + extension;
+											break;
+										default:
+											type = "application/" + extension;
+									}
+								}
+								writeResponse("200 OK", type, content);
+							}
+							else {
+								writeResponse("404 Not Found", null, null);
+							}
+						}
+						catch (IOException ignored) {
+							writeResponse("500 Internal Server Error", null, null);
+						}
+					}
+				}
+			} catch (IOException exception) {
+				throw new RuntimeException(exception);
 			}
 		}
 
@@ -315,39 +419,40 @@ public final class Server {
         }
 		 */
 
-        private void writeResponse(String code, String type, byte[] data) throws Throwable {
-        	OutputStream stream = socket.getOutputStream();
-        	if (code != null) {
-	        	if (type == null)
-	        		type = "application/unknown";
-	        	StringBuilder b = new StringBuilder();
+        private void writeResponse(String code, String type, byte[] data) throws IOException {
+			OutputStream stream = socket.getOutputStream();
+			if (code != null) {
+				if (type == null)
+					type = "application/unknown";
+				StringBuilder b = new StringBuilder();
 
-	        	b.append("HTTP/1.1 ");
-	        	b.append(code);
-	        	b.append("\r\n");
-	            
-	        	b.append("Access-Control-Allow-Origin: *\r\n");
-	        	
-	        	b.append("Content-Type: ");
-	        	b.append(type);
-	        	b.append("\r\n");
-	        	
-	        	b.append("Content-Length: ");
-	        	if (data != null)
-	        		b.append(data.length);
-	        	else
-	        		b.append('0');
-	        	b.append("\r\n");
+				b.append("HTTP/1.1 ");
+				b.append(code);
+				b.append("\r\n");
 
-	        	b.append("Connection: close\r\n");
+				b.append("Access-Control-Allow-Origin: *\r\n");
 
-	        	b.append("\r\n");
-	        	
-	            stream.write(b.toString().getBytes());
-        	}
-            if (data != null)
-            	stream.write(data);
-            stream.flush();
+				b.append("Content-Type: ");
+				b.append(type);
+				b.append("\r\n");
+
+				b.append("Content-Length: ");
+				if (data != null)
+					b.append(data.length);
+				else
+					b.append('0');
+				b.append("\r\n");
+
+				b.append("Connection: close\r\n");
+
+				b.append("\r\n");
+
+				stream.write(b.toString().getBytes());
+			}
+			if (data != null) {
+				stream.write(data);
+			}
+			stream.flush();
         }
     }
 }
