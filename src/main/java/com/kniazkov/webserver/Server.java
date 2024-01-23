@@ -164,12 +164,63 @@ public final class Server {
 					}
 				}
 				else if (boundary.length() > 0) {
+					try {
+						Thread.sleep(250);
+					} catch (InterruptedException ignored) {
+					}
+					String item = reader.readLine();
+					if (!item.equals("--" + boundary)) {
+						writeResponse("400 Bad Request", null, null);
+						return;
+					}
 					do {
-						String item = reader.readLineToBoundary();
-						item = reader.readLineToBoundary();
-						item = reader.readLineToBoundary();
-						break;
-					} while (false);
+						String key = "";
+						String contentType = "";
+						String fileName = "";
+						do {
+							item = reader.readLine();
+							if (item.startsWith("Content-Disposition: form-data")) {
+								int nameIndex = item.indexOf("name=\"");
+								if (nameIndex >= 0) {
+									key = item.substring(nameIndex + 6);
+									int closingQuoteIndex = key.indexOf("\"");
+									if (closingQuoteIndex < 0) {
+										writeResponse("400 Bad Request", null, null);
+										return;
+									}
+									key = key.substring(0, closingQuoteIndex);
+								}
+								int fileNameIndex = item.indexOf("filename=\"");
+								if (fileNameIndex >= 0) {
+									fileName = item.substring(fileNameIndex + 10);
+									int closingQuoteIndex = fileName.indexOf("\"");
+									if (closingQuoteIndex < 0) {
+										writeResponse("400 Bad Request", null, null);
+										return;
+									}
+									fileName = fileName.substring(0, closingQuoteIndex);
+								}
+							}
+							else if (item.startsWith("Content-Type:")) {
+								contentType = item.substring(14);
+							}
+						} while (item.length() != 0);
+						final byte[] data = reader.readArrayToBoundary();
+						final int first = reader.readByte();
+						final int second = reader.readByte();
+						if (fileName.length() == 0) {
+							request.formData.put(key, new String(data, StandardCharsets.UTF_8));
+						} else {
+							Request.File file = new Request.File();
+							file.name = URLDecoder.decode(fileName, "UTF-8");
+							file.contentType = contentType;
+							file.data = data;
+							request.files.put(key, file);
+						}
+						if (first != 13 && second != 10) {
+							break;
+						}
+					} while (true);
 				}
 
 				Response response = handler.handle(request);
@@ -235,198 +286,6 @@ public final class Server {
 				throw new RuntimeException(exception);
 			}
 		}
-
-		/*
-        public void run() {
-            try {
-
-            	writeResponse("102 Processing", null, null);
-            	
-                BufferedReader buff = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
-                while(true)
-                {
-                    String s = buff.readLine();
-                    if(s == null || s.trim().length() == 0) {
-                        break;
-                    }
-                    if (s.startsWith("GET")) {
-                    	int n = s.indexOf("HTTP");
-                    	if (n != -1)
-                    		address = s.substring(4,  n - 1);
-                    	method = Method.GET;
-                    }
-                    else if (s.startsWith("POST")) {
-                    	int n = s.indexOf("HTTP");
-                    	if (n != -1)
-                    		address = s.substring(5,  n - 1);
-                    	method = Method.POST; 
-                    }
-                    else if (s.startsWith("Content-Length:")) {
-                    	try {
-                    		contentLength = Integer.parseInt(s.substring(16));
-                    	}
-                    	catch(NumberFormatException e) {
-                    		contentLength = 0;
-                    	}
-                    }
-                    else if (s.startsWith("Content-Type: multipart/form-data;")) {
-                    	int n = s.indexOf("boundary=");
-                    	if (n != -1)
-                    		boundary = s.substring(n + 9);
-                    }
-                }
-                if (method == Method.POST && contentLength > 0) {
-                	Thread.sleep(250);
-                	char[] tmp = new char[contentLength];
-                	char[] data = new char[contentLength];
-                	int offset = 0;
-                	int readCnt;
-                	while (offset < contentLength) {
-                		readCnt = buff.read(tmp);
-                		if (readCnt == -1)
-                			break;
-                		System.arraycopy(tmp, 0, data, offset, readCnt);
-                		offset += readCnt;
-                    	writeResponse("202 Accepted", null, null);
-                	}
-            		postData = String.valueOf(data);
-                }
-                
-                if (method == Method.UNKNOWN) {
-            		writeResponse("200 OK", "text/javascript", null);
-                }
-                else if ((address != null && address.startsWith("/?")) || (method == Method.POST && boundary == null)) {
-                	TreeMap<String, FormData> map = new TreeMap<String, FormData>();
-                	String request;
-                	if (method == Method.GET)
-                		request = address.substring(2);
-                	else
-                		request = postData;
-                	String[] split = request.split("&");
-                	for(String pair : split) {
-                		if (pair != null && !pair.equals("")) {
-                    		String[] keyVal = pair.split("=");
-                    		if (keyVal.length == 2) {
-                    			String key = URLDecoder.decode(keyVal[0], "UTF-8");
-                    			FormData value = new FormData(URLDecoder.decode(keyVal[1], "UTF-8"));
-                    			map.put(key, value);
-                    		}
-                		}
-                	}
-                	Response response = handler.handle(map);
-                	if (response != null)
-						writeResponse("200 OK", response.getContentType(), response.getData());
-                	else
-                		writeResponse("500 Internal Server Error", null, null);
-                }
-                else if (method == Method.POST && boundary != null) {
-                	TreeMap<String, FormData> map = new TreeMap<String, FormData>();
-                	String[] split = postData.split("--" + boundary);
-                	for(String part : split) {
-                		int i = part.indexOf("Content-Disposition");
-                		if (i > -1 && i < 10) {
-                			int j = part.indexOf("\r\n\r\n");
-                			if (j > -1) {
-            					String fileName = null;
-                				String value = part.substring(j + 4, part.length() - 2);
-                				String header = part.substring(0, j);
-                				int k = header.indexOf("name=\"");
-                				if (k > -1)
-                				{
-                					header = header.substring(k + 6);
-                					k = header.indexOf('"');
-                					String key = header.substring(0, k);
-                					header = header.substring(k + 1);
-                					k = header.indexOf("filename=\"");
-                					if (k > -1)
-                					{
-                						header = header.substring(k + 10);
-                						k = header.indexOf('"');
-                						fileName = header.substring(0, k);
-                					}
-                					map.put(key, new FormData(fileName, value));
-                				}
-                			}
-                		}
-                	}
-                	Response response = handler.handle(map);
-                	if (response != null)
-                		writeResponse("200 OK", response.getContentType(), response.getData());
-                	else
-                		writeResponse("500 Internal Server Error", null, null);
-                }
-                else {
-                	int paramsIdx = address.indexOf('?');
-                	if (paramsIdx >= 0)
-                		address = address.substring(0, paramsIdx);
-                	if (address.equals("/"))
-                		address = "/index.html";
-                	else
-                		address = URLDecoder.decode(address, "UTF-8");
-                	Response response = handler.handle(address);
-                	if (response != null) {
-                		writeResponse("200 OK", response.getContentType(), response.getData());
-                	}
-                	else {
-	                	String path = wwwRoot + address;
-	                	try {
-	                		File file = new File(path);
-	                		if (file.exists())
-	                		{
-	                			byte[] data = Files.readAllBytes(file.toPath());
-	                			String ext = null;
-	                			int i = address.lastIndexOf('.');
-	                			if (i > 0)
-	                				ext = address.substring(i + 1).toLowerCase();
-	                			String type = "application/unknown";
-	                			if (ext != null) {
-	                				switch(ext)
-	                				{
-	                				case "htm":
-	                				case "html":
-	                					type = "text/html";
-	                					break;
-	                				case "css":
-	                					type = "text/css";
-	                					break;
-	                				case "js":
-	                					type = "text/javascript";
-	                					break;
-	                				case "jpg":
-	                				case "jpeg":
-	                				case "png":
-	                				case "gif":
-	                					type = "image/" + ext;
-	                					break;
-	                				default:
-	                					type = "application/" + ext;
-	                				}
-	                			}
-	                    		writeResponse("200 OK", type, data);
-	                		}
-	                		else
-	                    		writeResponse("404 Not Found", null, null);
-	                	}
-	                	catch (Throwable t) {
-	                		writeResponse("500 Internal Server Error", null, null);
-	                	}
-                	}
-                }
-            }
-            catch (Throwable t) {
-            	if (!(t instanceof java.net.SocketException))
-            		t.printStackTrace();
-            }
-            finally {
-                try {
-                    socket.close();
-                }
-                catch (Throwable t) {
-                	t.printStackTrace();
-                }
-            }
-        }
-		 */
 
         private void writeResponse(String code, String type, byte[] data) throws IOException {
 			OutputStream stream = socket.getOutputStream();

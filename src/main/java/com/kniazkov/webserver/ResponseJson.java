@@ -1,6 +1,7 @@
 package com.kniazkov.webserver;
 
 import com.kniazkov.json.JsonElement;
+import java.nio.charset.StandardCharsets;
 
 public class ResponseJson implements Response {
 	public ResponseJson(JsonElement rootElem) {
@@ -12,8 +13,8 @@ public class ResponseJson implements Response {
 	}
 
 	public byte[] getData() {
-		return rootElem.toString().getBytes();
+		return rootElem.toString().getBytes(StandardCharsets.UTF_8);
 	}
 
-	private JsonElement rootElem;
+	private final JsonElement rootElem;
 }

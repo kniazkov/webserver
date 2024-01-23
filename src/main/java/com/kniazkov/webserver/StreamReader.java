@@ -3,6 +3,7 @@ package com.kniazkov.webserver;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 class StreamReader {
     private static final int BUFF_SIZE = 1024;
@@ -19,17 +20,21 @@ class StreamReader {
 
     private byte[] boundary;
 
+    private byte[] data;
+
     StreamReader(InputStream stream) {
         this.stream = stream;
         this.buff = new byte[BUFF_SIZE];
         this.offset = 0;
         this.available = 0;
-        this.limit = Integer.MAX_VALUE; // unlimited
-        this.boundary = new byte[0];
+        this.limit = -1; // unlimited
+        this.boundary = null;
+        this.data = null;
     }
 
     void setLimit(int value) {
         limit = value;
+        data = new byte[limit];
     }
 
     void setBoundary(String value) {
@@ -37,39 +42,44 @@ class StreamReader {
     }
 
     String readLine() throws IOException {
-        StringBuilder builder = new StringBuilder();
-        int ch = read();
+        final StringBuilder builder = new StringBuilder();
+        int ch = readByte();
         while (ch >= 0 && ch != 10) {
             builder.append((char)ch);
-            ch = read();
+            ch = readByte();
         }
         return builder.toString().trim();
     }
 
-    String readLineToBoundary() throws IOException {
-        if (boundary.length == 0) {
-            return readLine();
+    byte[] readArrayToBoundary() throws IOException {
+        if (boundary == null || data == null) {
+            return new byte[0];
         }
-        StringBuilder builder = new StringBuilder();
-        FixedSizeByteArray tail = new FixedSizeByteArray(boundary.length);
-        int ch = read();
-        while (ch >= 0 && ch != 10) {
-            if (tail.full()) {
-                builder.append((char)(tail.push((byte) ch)));
-            } else {
-                tail.push((byte) ch);
+        int size = 0;
+        int b = readByte();
+        while (b >= 0) {
+            data[size] = (byte)b;
+            size++;
+            if (size >= boundary.length) {
+                boolean cut = true;
+                for (int index = 0; index < boundary.length; index++) {
+                    if (boundary[index] != data[size - boundary.length + index]) {
+                        cut = false;
+                        break;
+                    }
+                }
+                if (cut) {
+                    size = size - 2 /* CLRF */ - boundary.length;
+                    break;
+                }
             }
-            if (tail.equals(boundary)) {
-                return builder.toString().trim();
-            }
-            ch = read();
+            b = readByte();
         }
-        builder.append(tail.toString());
-        return builder.toString().trim();
+        return Arrays.copyOf(data, size);
     }
 
-    private int read() throws IOException {
-        if (limit < 1) {
+    int readByte() throws IOException {
+        if (limit == 0) {
             return -1;
         }
         if (available == 0) {
@@ -79,8 +89,10 @@ class StreamReader {
             }
             offset = 0;
         }
-        limit--;
+        if (limit > 0) {
+            limit--;
+        }
         available--;
-        return (int)buff[offset++];
+        return (int)((char)buff[offset++]);
     }
 }

@@ -1,5 +1,7 @@
 package com.kniazkov.webserver;
 
+import java.nio.charset.StandardCharsets;
+
 public final class ResponseText implements Response {
 	public ResponseText(String text) {
 		this.text = text;
@@ -10,8 +12,8 @@ public final class ResponseText implements Response {
 	}
 
 	public byte[] getData() {
-		return text.getBytes();
+		return text.getBytes(StandardCharsets.UTF_8);
 	}
 
-	private String text;
+	private final String text;
 }
