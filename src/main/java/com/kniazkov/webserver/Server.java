@@ -6,19 +6,23 @@ import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class Server {
-	public static Server start(Options opt, Handler handler) {
-		Server server = new Server(opt, handler);
+
+	private final Listener listener;
+
+	private final Thread thread;
+
+	public static Server start(Options options, Handler handler) {
+		Server server = new Server(options, handler);
 		server.start();
 		return server;
 	}
 	
-	private Server(Options opt, Handler handler) {
-		listener = new Listener(opt, handler);
+	private Server(Options options, Handler handler) {
+		listener = new Listener(options, handler);
 		thread = new Thread(listener);
 	}
 	
@@ -33,43 +37,34 @@ public final class Server {
 	public void stop() {
 		listener.stop();
 	}
-	
-	private final Listener listener;
-	private final Thread thread;
+
 	
 	private static class Listener implements Runnable {
-		private final Options opt;
+		private final Options options;
 		private final Handler handler;
 		private volatile boolean work;
 	
-		public Listener(Options opt, Handler handler) {
-			this.opt = opt;
+		public Listener(final Options options, final Handler handler) {
+			this.options = options;
 			this.handler = handler;
 			work = true;
 		}
 
 		public void run() {
-			ServerSocket ss = null;
+			ServerSocket serverSocket = null;
 			try {
-		        ss = new ServerSocket(opt.port);
-		        ExecutorService pool = Executors.newFixedThreadPool(opt.threadCount);
+				serverSocket = new ServerSocket(options.port);
+		        ExecutorService pool = Executors.newFixedThreadPool(options.threadCount);
 		        while (work)
 		        {
-		            Socket s = ss.accept();
-		            pool.submit(new Processor(s, opt.wwwRoot, handler));
+		            Socket socket = serverSocket.accept();
+		            pool.submit(new Executor(socket, options.wwwRoot, handler));
 		        }
 		        pool.shutdownNow();
+				serverSocket.close();
 			}
-			catch (Throwable e) {
-				System.err.println("HTTP server failed: " + e.toString());
-			}
-
-			try {
-				if (ss != null)
-					ss.close();
-			}
-			catch (IOException e) {
-				e.printStackTrace();
+			catch (IOException exception) {
+				throw new RuntimeException(exception);
 			}
 		}
 		
@@ -78,17 +73,16 @@ public final class Server {
 		}
 	}
 	
-    private static class Processor implements Runnable {
+    private static class Executor implements Runnable {
+		private final Socket socket;
+		private final String wwwRoot;
+		private final Handler handler;
 
-        private Processor(Socket socket, String wwwRoot, Handler handler) {
+        private Executor(Socket socket, String wwwRoot, Handler handler) {
         	this.socket = socket;
         	this.wwwRoot = wwwRoot;
         	this.handler = handler;
         }
-
-        private final Socket socket;
-        private final String wwwRoot;
-        private final Handler handler;
 
 		public void run() {
 			try {

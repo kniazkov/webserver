@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-class StreamReader {
+final class StreamReader {
     private static final int BUFF_SIZE = 1024;
 
     private final InputStream stream;
@@ -22,7 +22,7 @@ class StreamReader {
 
     private byte[] data;
 
-    StreamReader(InputStream stream) {
+    StreamReader(final InputStream stream) {
         this.stream = stream;
         this.buff = new byte[BUFF_SIZE];
         this.offset = 0;
@@ -32,12 +32,12 @@ class StreamReader {
         this.data = null;
     }
 
-    void setLimit(int value) {
+    void setLimit(final int value) {
         limit = value;
         data = new byte[limit];
     }
 
-    void setBoundary(String value) {
+    void setBoundary(final String value) {
         boundary = value.getBytes(StandardCharsets.US_ASCII);
     }
 

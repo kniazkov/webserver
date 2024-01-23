@@ -3,7 +3,7 @@ package com.kniazkov.webserver;
 import java.util.Map;
 import java.util.TreeMap;
 
-public class Request {
+public final class Request {
     public String address = "";
 
     public Method method = Method.UNKNOWN;
