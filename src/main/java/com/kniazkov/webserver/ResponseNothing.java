@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2024 Ivan Kniazkov
+ */
 package com.kniazkov.webserver;
 
 public final class ResponseNothing implements Response {
