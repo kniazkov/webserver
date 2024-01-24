@@ -5,9 +5,19 @@ package com.kniazkov.webserver;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Response returned by the handler, in the form of a plain text.
+ */
 public final class ResponseText implements Response {
+	/**
+	 * The text.
+	 */
 	private final String text;
 
+	/**
+	 * Constructor.
+	 * @param text The text
+	 */
 	public ResponseText(String text) {
 		this.text = text;
 	}
@@ -19,5 +29,4 @@ public final class ResponseText implements Response {
 	public byte[] getData() {
 		return text.getBytes(StandardCharsets.UTF_8);
 	}
-
 }

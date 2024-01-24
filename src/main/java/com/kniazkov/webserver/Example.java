@@ -7,17 +7,35 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
 
+/**
+ * An example class that shows how to use the server.
+ */
 public class Example {
+    /**
+     * Starting point.
+     * @param args Program arguments
+     */
     public static void main(String[] args) {
-
+        /*
+         * 1. Filling of options for starting the server
+         */
         Options options = new Options();
         options.wwwRoot = "./example";
 
+        /*
+         * 2. Creating the handler instance
+         */
         Handler handler = new MyHandler();
 
+        /*
+         * 3. Starting the web server
+         */
         Server.start(options, handler);
     }
 
+    /**
+     * Custom requests handler.
+     */
     private static class MyHandler implements Handler {
         private int count = 0;
         private final Map<String, Request.File> uploadedFiles = new TreeMap<>();

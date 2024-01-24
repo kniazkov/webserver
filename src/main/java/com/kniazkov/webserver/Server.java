@@ -12,47 +12,98 @@ import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Simple and perfect web server for everyday use.
+ */
 public final class Server {
-
+	/**
+	 * Listener that's listening a socket.
+	 */
 	private final Listener listener;
 
+	/**
+	 * Thread in which the listener is running.
+	 */
 	private final Thread thread;
 
+	/**
+	 * Starts the web server.
+	 * @param options Options for starting the server
+	 * @param handler Handler that handles requests received from clients (i.e., web pages).
+	 * @return An instance of the running server
+	 */
 	public static Server start(Options options, Handler handler) {
 		Server server = new Server(options, handler);
 		server.start();
 		return server;
 	}
-	
+
+	/**
+	 * Private constructor.
+	 * @param options Options for starting the server
+	 * @param handler Handler that handles requests received from clients
+	 */
 	private Server(Options options, Handler handler) {
 		listener = new Listener(options, handler);
 		thread = new Thread(listener);
 	}
-	
+
+	/**
+	 * Starts the thread in which the listener is running.
+	 */
 	private void start() {
 		thread.start();
 	}
-	
+
+	/**
+	 * Checks if the server is in a running state.
+	 * @return Checking result.
+	 */
 	public boolean isAlive() {
 		return thread.isAlive();
 	}
-	
+
+	/**
+	 * Stops the web server.
+	 */
 	public void stop() {
 		listener.stop();
 	}
 
-	
+	/**
+	 * Listener that's listening a socket.
+	 */
 	private static class Listener implements Runnable {
+		/**
+		 * Options for starting the server.
+		 */
 		private final Options options;
+
+		/**
+		 * Handler that handles requests received from clients (i.e., web pages).
+		 */
 		private final Handler handler;
+
+		/**
+		 * Flag, as long as it is set, the listener will listen the socket.
+		 * As soon as the flag is reset, the server will stop after processing the last request.
+		 */
 		private volatile boolean work;
-	
+
+		/**
+		 * Constructor.
+		 * @param options Options for starting the server
+		 * @param handler Handler that handles requests received from clients
+		 */
 		public Listener(final Options options, final Handler handler) {
 			this.options = options;
 			this.handler = handler;
 			work = true;
 		}
 
+		/**
+		 * Starting point of the listener.
+		 */
 		public void run() {
 			ServerSocket serverSocket = null;
 			try {
@@ -70,23 +121,51 @@ public final class Server {
 				throw new RuntimeException(exception);
 			}
 		}
-		
+
+		/**
+		 * Stops the server.
+		 */
 		public void stop() {
 			work = false;
 		}
 	}
-	
+
+	/**
+	 * Thread that executes requests received from a client.
+	 */
     private static class Executor implements Runnable {
+		/**
+		 * Socket.
+		 */
 		private final Socket socket;
+
+		/**
+		 * Folder in which web page files, such as 'index.html', are located.
+		 */
 		private final String wwwRoot;
+
+		/**
+		 * Handler that handles requests received from a client.
+		 */
 		private final Handler handler;
 
+		/**
+		 * Constructor.
+		 * @param socket Socket
+		 * @param wwwRoot Folder in which web page files, such as 'index.html', are located
+		 * @param handler Handler that handles requests received from a client
+		 */
         private Executor(Socket socket, String wwwRoot, Handler handler) {
         	this.socket = socket;
         	this.wwwRoot = wwwRoot;
         	this.handler = handler;
         }
 
+		/**
+		 * Starting point of the executor.
+		 * Here the data received from the client is parsed, the handler is called,
+		 * and then the resulting data is sent to the client.
+		 */
 		public void run() {
 			try {
 				final StreamReader reader = new StreamReader(socket.getInputStream());
@@ -248,6 +327,9 @@ public final class Server {
 								if (extension.length() > 0) {
 									switch(extension)
 									{
+										case "txt":
+											type = "text/plain";
+											break;
 										case "htm":
 										case "html":
 											type = "text/html";
@@ -284,6 +366,13 @@ public final class Server {
 			}
 		}
 
+		/**
+		 * Sends a response to the client.
+		 * @param code Response code, for example {@code 404 Not Found}
+		 * @param type Response type, for example, {@code image/jpeg} or {@code text/html}
+		 * @param data Response data
+		 * @throws IOException If there's something wrong with the output stream
+		 */
         private void writeResponse(String code, String type, byte[] data) throws IOException {
 			OutputStream stream = socket.getOutputStream();
 			if (code != null) {

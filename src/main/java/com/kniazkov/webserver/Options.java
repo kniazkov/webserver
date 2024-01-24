@@ -3,10 +3,23 @@
  */
 package com.kniazkov.webserver;
 
-public class Options {
+/**
+ * Some options for starting the server.
+ */
+public final class Options {
+	/**
+	 * Port number.
+	 * Typically, the numbers used for the HTTP protocol are 80, 8000, 8080.
+	 */
 	public int port = 8000;
 
+	/**
+	 * A folder in which web page files, such as 'index.html', are located.
+	 */
 	public String wwwRoot = "./www";
 
+	/**
+	 * The number of simultaneous requests that the server can handle.
+	 */
 	public int threadCount = 16;
 }
