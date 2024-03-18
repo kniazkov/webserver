@@ -6,7 +6,7 @@
 
     <groupId>com.kniazkov</groupId>
     <artifactId>webserver</artifactId>
-    <version>0.2</version>
+    <version>1.0</version>
     <name>com.kniazkov.webserver</name>
     <description>The perfect web server</description>
     <url>https://github.com/kniazkov/webserver</url>
@@ -47,7 +47,7 @@
         <dependency>
             <groupId>com.kniazkov</groupId>
             <artifactId>json</artifactId>
-            <version>0.2</version>
+            <version>1.0</version>
         </dependency>
     </dependencies>
 
