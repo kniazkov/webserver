@@ -8,26 +8,16 @@ package com.kniazkov.webserver;
  */
 public final class ResponseNothing implements Response {
 	/**
+	 * The instance.
+	 */
+	public static Response INSTANCE = new ResponseNothing();
+
+	/**
 	 * Private constructor.
 	 */
 	private ResponseNothing() {
 	}
 
-	/**
-	 * The instance.
-	 */
-	private static Response instance = null;
-
-	/**
-	 * Returns instance of this class.
-	 * @return Response that contains nothing.
-	 */
-	public static Response getInstance() {
-		if (instance == null)
-			instance = new ResponseNothing();
-		return instance;
-	}
-	
 	public String getContentType() {
 		return "text/plain";
 	}

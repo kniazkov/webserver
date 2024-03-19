@@ -1,6 +1,6 @@
 # The perfect web server
 
-Version 0.2
+Version 1.0
 
 ## Goal
 
@@ -18,7 +18,7 @@ To link the library to your Maven project, add the following dependency to `pom.
     <dependency>
         <groupId>com.kniazkov</groupId>
         <artifactId>webserver</artifactId>
-        <version>0.2</version>
+        <version>1.0</version>
     </dependency>
 </dependencies>
 ```
@@ -40,6 +40,10 @@ class MyHandler implements Handler {
 ```
 
 Specify options for starting the server. In the simplest case, the default options are good.
+
+If necessary, create a folder from which to read your project's static files, such as `index.html`.  
+The default name of this folder is `www`.
+
 Then, start the web server.
 
 ```java
@@ -54,4 +58,5 @@ class MyProject {
     }
 }
 ```
-That's all. If you have any questions, please create a ticket in the project.
+That's all. Also, you can find some examples in the `example` subfolder.  
+If you have any questions, please create a ticket in the project.
