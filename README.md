@@ -1,6 +1,6 @@
 # The perfect web server
 
-Version 1.0
+Version 1.0.1
 
 ## Goal
 
@@ -18,7 +18,7 @@ To link the library to your Maven project, add the following dependency to `pom.
     <dependency>
         <groupId>com.kniazkov</groupId>
         <artifactId>webserver</artifactId>
-        <version>1.0</version>
+        <version>1.0.1</version>
     </dependency>
 </dependencies>
 ```

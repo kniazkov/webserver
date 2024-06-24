@@ -52,7 +52,7 @@ public final class Request {
     /**
      * Structure describing a single file transferred using the POST method.
      */
-    static class File {
+    public static class File {
         /**
          * Original file name.
          */
