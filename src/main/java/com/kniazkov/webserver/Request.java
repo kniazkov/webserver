@@ -47,25 +47,5 @@ public final class Request {
     /**
      * Parsed web form data containing transferred files using POST method.
      */
-    public Map<String, File> files = new TreeMap<>();
-
-    /**
-     * Structure describing a single file transferred using the POST method.
-     */
-    public static class File {
-        /**
-         * Original file name.
-         */
-        public String name;
-
-        /**
-         * Content type, for example, {@code image/jpeg} or {@code text/html}.
-         */
-        public String contentType;
-
-        /**
-         * The file content.
-         */
-        public byte[] data;
-    }
+    public Map<String, FileDescriptor> files = new TreeMap<>();
 }

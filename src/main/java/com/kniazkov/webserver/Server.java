@@ -287,7 +287,7 @@ public final class Server {
 						if (fileName.length() == 0) {
 							request.formData.put(key, new String(data, StandardCharsets.UTF_8));
 						} else {
-							Request.File file = new Request.File();
+							final FileDescriptor file = new FileDescriptor();
 							file.name = URLDecoder.decode(fileName, "UTF-8");
 							file.contentType = contentType;
 							file.data = data;
