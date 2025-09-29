@@ -169,136 +169,7 @@ public final class Server {
 		public void run() {
 			try {
 				final StreamReader reader = new StreamReader(socket.getInputStream());
-				final Request request = new Request();
-				int contentLength = 0;
-				String boundary = "";
-
-				String line = reader.readLine();
-				while (line.length() > 0) {
-					if (line.startsWith("GET")) {
-						int index = line.indexOf("HTTP");
-						if (index != -1)
-							request.address = line.substring(4,  index - 1);
-						request.method = Method.GET;
-					}
-					else if (line.startsWith("POST")) {
-						int index = line.indexOf("HTTP");
-						if (index != -1)
-							request.address = line.substring(5,  index - 1);
-						request.method = Method.POST;
-					}
-					else if (line.startsWith("Content-Length:")) {
-						try {
-							contentLength = Integer.parseInt(line.substring(16));
-						}
-						catch(NumberFormatException ignored) {
-							writeResponse("500 Internal Server Error", null, null);
-							return;
-						}
-					}
-					else if (line.startsWith("Content-Type: multipart/form-data;")) {
-						int index = line.indexOf("boundary=");
-						if (index != -1)
-							boundary = line.substring(index + 9);
-					}
-					line = reader.readLine();
-				}
-
-				if (request.method == Method.UNKNOWN) {
-					writeResponse("200 OK", "text/javascript", null);
-				}
-				else if (request.method == Method.POST) {
-					reader.setLimit(contentLength);
-					reader.setBoundary("--" + boundary);
-				}
-
-				if (request.method == Method.GET || (request.method == Method.POST && boundary.length() == 0)) {
-					String data = "";
-					if (request.method == Method.GET) {
-						final int index = request.address.indexOf('?');
-						if (index >= 0) {
-							data = request.address.substring(index + 1);
-						}
-					}
-					else {
-						data = reader.readLine();
-					}
-					if (data.length() > 0) {
-						for (final String item : data.split("&")) {
-							if (item != null && !item.equals("")) {
-								final String[] pair = item.split("=");
-								if (pair.length == 1 || pair.length == 2) {
-									final String key = URLDecoder.decode(pair[0], "UTF-8");
-									String value = "";
-									if (pair.length == 2) {
-										value = URLDecoder.decode(pair[1], "UTF-8");
-									}
-									request.formData.put(key, value);
-								}
-							}
-						}
-					}
-				}
-				else if (boundary.length() > 0) {
-					try {
-						Thread.sleep(250);
-					} catch (InterruptedException ignored) {
-					}
-					String item = reader.readLine();
-					if (!item.equals("--" + boundary)) {
-						writeResponse("400 Bad Request", null, null);
-						return;
-					}
-					do {
-						String key = "";
-						String contentType = "";
-						String fileName = "";
-						do {
-							item = reader.readLine();
-							if (item.startsWith("Content-Disposition: form-data")) {
-								int nameIndex = item.indexOf("name=\"");
-								if (nameIndex >= 0) {
-									key = item.substring(nameIndex + 6);
-									int closingQuoteIndex = key.indexOf("\"");
-									if (closingQuoteIndex < 0) {
-										writeResponse("400 Bad Request", null, null);
-										return;
-									}
-									key = key.substring(0, closingQuoteIndex);
-								}
-								int fileNameIndex = item.indexOf("filename=\"");
-								if (fileNameIndex >= 0) {
-									fileName = item.substring(fileNameIndex + 10);
-									int closingQuoteIndex = fileName.indexOf("\"");
-									if (closingQuoteIndex < 0) {
-										writeResponse("400 Bad Request", null, null);
-										return;
-									}
-									fileName = fileName.substring(0, closingQuoteIndex);
-								}
-							}
-							else if (item.startsWith("Content-Type:")) {
-								contentType = item.substring(14);
-							}
-						} while (item.length() != 0);
-						final byte[] data = reader.readArrayToBoundary();
-						final int first = reader.readByte();
-						final int second = reader.readByte();
-						if (fileName.length() == 0) {
-							request.formData.put(key, new String(data, StandardCharsets.UTF_8));
-						} else {
-							final FileDescriptor file = new FileDescriptor();
-							file.name = URLDecoder.decode(fileName, "UTF-8");
-							file.contentType = contentType;
-							file.data = data;
-							request.files.put(key, file);
-						}
-						if (first != 13 && second != 10) {
-							break;
-						}
-					} while (true);
-				}
-
+				final Request request = parseRequest(reader);
 				Response response = handler.handle(request);
 				if (response != null) {
 					writeResponse("200 OK", response.getContentType(), response.getData());
@@ -364,6 +235,153 @@ public final class Server {
 			} catch (IOException exception) {
 				throw new RuntimeException(exception);
 			}
+		}
+
+		/**
+		 * Parses an HTTP request received from the client.
+		 *
+		 * This method reads data from the input stream (request line, headers, and optionally
+		 * the body), determines the HTTP method, target address, headers, and fills the
+		 * {@link Request} object.
+		 * For POST requests, it also extracts form parameters or file data
+		 * in case of <code>multipart/form-data</code>.
+		 *
+		 * @param reader the stream reader used to read client data line by line
+		 * @return a {@link Request} object containing the parsed request data
+		 * @throws IOException if an error occurs while reading from the socket
+		 */
+		private Request parseRequest(StreamReader reader) throws IOException {
+			final Request request = new Request();
+			int contentLength = 0;
+			String boundary = "";
+
+			String line = reader.readLine();
+			while (line.length() > 0) {
+				if (line.startsWith("GET")) {
+					int index = line.indexOf("HTTP");
+					if (index != -1)
+						request.address = line.substring(4,  index - 1);
+					request.method = Method.GET;
+				}
+				else if (line.startsWith("POST")) {
+					int index = line.indexOf("HTTP");
+					if (index != -1)
+						request.address = line.substring(5,  index - 1);
+					request.method = Method.POST;
+				}
+				else if (line.startsWith("Content-Length:")) {
+					try {
+						contentLength = Integer.parseInt(line.substring(16));
+					}
+					catch(NumberFormatException ignored) {
+						writeResponse("500 Internal Server Error", null, null);
+						return null;
+					}
+				}
+				else if (line.startsWith("Content-Type: multipart/form-data;")) {
+					int index = line.indexOf("boundary=");
+					if (index != -1)
+						boundary = line.substring(index + 9);
+				}
+				line = reader.readLine();
+			}
+
+			if (request.method == Method.UNKNOWN) {
+				writeResponse("200 OK", "text/javascript", null);
+			}
+			else if (request.method == Method.POST) {
+				reader.setLimit(contentLength);
+				reader.setBoundary("--" + boundary);
+			}
+
+			if (request.method == Method.GET || (request.method == Method.POST && boundary.length() == 0)) {
+				String data = "";
+				if (request.method == Method.GET) {
+					final int index = request.address.indexOf('?');
+					if (index >= 0) {
+						data = request.address.substring(index + 1);
+					}
+				}
+				else {
+					data = reader.readLine();
+				}
+				if (data.length() > 0) {
+					for (final String item : data.split("&")) {
+						if (item != null && !item.equals("")) {
+							final String[] pair = item.split("=");
+							if (pair.length == 1 || pair.length == 2) {
+								final String key = URLDecoder.decode(pair[0], "UTF-8");
+								String value = "";
+								if (pair.length == 2) {
+									value = URLDecoder.decode(pair[1], "UTF-8");
+								}
+								request.formData.put(key, value);
+							}
+						}
+					}
+				}
+			}
+			else if (boundary.length() > 0) {
+				try {
+					Thread.sleep(250);
+				} catch (InterruptedException ignored) {
+				}
+				String item = reader.readLine();
+				if (!item.equals("--" + boundary)) {
+					writeResponse("400 Bad Request", null, null);
+					return null;
+				}
+				do {
+					String key = "";
+					String contentType = "";
+					String fileName = "";
+					do {
+						item = reader.readLine();
+						if (item.startsWith("Content-Disposition: form-data")) {
+							int nameIndex = item.indexOf("name=\"");
+							if (nameIndex >= 0) {
+								key = item.substring(nameIndex + 6);
+								int closingQuoteIndex = key.indexOf("\"");
+								if (closingQuoteIndex < 0) {
+									writeResponse("400 Bad Request", null, null);
+									return null;
+								}
+								key = key.substring(0, closingQuoteIndex);
+							}
+							int fileNameIndex = item.indexOf("filename=\"");
+							if (fileNameIndex >= 0) {
+								fileName = item.substring(fileNameIndex + 10);
+								int closingQuoteIndex = fileName.indexOf("\"");
+								if (closingQuoteIndex < 0) {
+									writeResponse("400 Bad Request", null, null);
+									return null;
+								}
+								fileName = fileName.substring(0, closingQuoteIndex);
+							}
+						}
+						else if (item.startsWith("Content-Type:")) {
+							contentType = item.substring(14);
+						}
+					} while (item.length() != 0);
+					final byte[] data = reader.readArrayToBoundary();
+					final int first = reader.readByte();
+					final int second = reader.readByte();
+					if (fileName.length() == 0) {
+						request.formData.put(key, new String(data, StandardCharsets.UTF_8));
+					} else {
+						final FileDescriptor file = new FileDescriptor();
+						file.name = URLDecoder.decode(fileName, "UTF-8");
+						file.contentType = contentType;
+						file.data = data;
+						request.files.put(key, file);
+					}
+					if (first != 13 && second != 10) {
+						break;
+					}
+				} while (true);
+			}
+
+			return request;
 		}
 
 		/**
