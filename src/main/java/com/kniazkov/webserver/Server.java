@@ -315,10 +315,6 @@ public final class Server {
 				}
 			}
 			else if (boundary.length() > 0) {
-				try {
-					Thread.sleep(250);
-				} catch (InterruptedException ignored) {
-				}
 				String item = reader.readLine();
 				if (!item.equals("--" + boundary)) {
 					writeResponse("400 Bad Request", null, null);

@@ -146,7 +146,7 @@ final class StreamReader {
         }
         if (available == 0) {
             available = stream.read(buff);
-            if (available == 0) {
+            if (available < 0) {
                 return -1;
             }
             offset = 0;
