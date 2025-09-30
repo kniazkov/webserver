@@ -50,6 +50,11 @@ public final class Request {
     public Map<String, FileDescriptor> files = new TreeMap<>();
 
     /**
+     * Parsed HTTP cookies sent by the client.
+     */
+    public Map<String, String> cookies = new TreeMap<>();
+
+    /**
      * Indicates whether the client requested to close the connection
      * after this request. Typically derived from the {@code Connection}
      * header in HTTP/1.1.

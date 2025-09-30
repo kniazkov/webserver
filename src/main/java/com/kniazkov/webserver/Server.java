@@ -10,6 +10,7 @@ import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -205,7 +206,12 @@ public final class Server {
 			}
 			Response response = handler.handle(request);
 			if (response != null) {
-				writeResponse("200 OK", response.getContentType(), response.getData());
+				writeResponse(
+					"200 OK",
+					response.getContentType(),
+					response.getData(),
+					response.getCookies()
+				);
 			} else {
 				readAndSendLocalFile(request);
 			}
@@ -261,7 +267,7 @@ public final class Server {
 						try {
 							contentLength = Integer.parseInt(value);
 						} catch (NumberFormatException ignored) {
-							writeResponse("400 Bad Request", null, null);
+							writeResponse("400 Bad Request");
 							return null;
 						}
 					} else if ("Content-Type".equalsIgnoreCase(name) && value.startsWith("multipart/form-data;")) {
@@ -271,6 +277,16 @@ public final class Server {
 						}
 					} else if ("Connection".equalsIgnoreCase(name) && "close".equalsIgnoreCase(value)) {
 						request.closeConnection = true;
+					} else if ("Cookie".equalsIgnoreCase(name)) {
+						String[] pairs = value.split(";");
+						for (String pair : pairs) {
+							String[] kv = pair.trim().split("=", 2);
+							if (kv.length == 2) {
+								String cookieName = URLDecoder.decode(kv[0].trim(), "UTF-8");
+								String cookieValue = URLDecoder.decode(kv[1].trim(), "UTF-8");
+								request.cookies.put(cookieName, cookieValue);
+							}
+						}
 					}
 				}
 				line = reader.readLine();
@@ -285,7 +301,7 @@ public final class Server {
 			}
 
 			if (request.method == Method.UNKNOWN) {
-				writeResponse("200 OK", "text/javascript", null);
+				writeResponse("200 OK", "text/javascript");
 			}
 			else if (request.method == Method.POST) {
 				reader.setLimit(contentLength);
@@ -317,7 +333,7 @@ public final class Server {
 			else if (boundary.length() > 0) {
 				String item = reader.readLine();
 				if (!item.equals("--" + boundary)) {
-					writeResponse("400 Bad Request", null, null);
+					writeResponse("400 Bad Request");
 					return null;
 				}
 				do {
@@ -332,7 +348,7 @@ public final class Server {
 								key = item.substring(nameIndex + 6);
 								int closingQuoteIndex = key.indexOf("\"");
 								if (closingQuoteIndex < 0) {
-									writeResponse("400 Bad Request", null, null);
+									writeResponse("400 Bad Request");
 									return null;
 								}
 								key = key.substring(0, closingQuoteIndex);
@@ -342,7 +358,7 @@ public final class Server {
 								fileName = item.substring(fileNameIndex + 10);
 								int closingQuoteIndex = fileName.indexOf("\"");
 								if (closingQuoteIndex < 0) {
-									writeResponse("400 Bad Request", null, null);
+									writeResponse("400 Bad Request");
 									return null;
 								}
 								fileName = fileName.substring(0, closingQuoteIndex);
@@ -384,7 +400,7 @@ public final class Server {
 		 */
 		private void readAndSendLocalFile(final Request request) throws IOException {
 			if (request.address.startsWith("/?")) {
-				writeResponse("500 Internal Server Error", null, null);
+				writeResponse("500 Internal Server Error");
 			} else {
 				String path = request.address;
 				int index = path.indexOf('?');
@@ -433,23 +449,57 @@ public final class Server {
 						writeResponse("200 OK", type, content);
 					}
 					else {
-						writeResponse("404 Not Found", null, null);
+						writeResponse("404 Not Found");
 					}
 				}
 				catch (IOException ignored) {
-					writeResponse("500 Internal Server Error", null, null);
+					writeResponse("500 Internal Server Error");
 				}
 			}
+		}
+
+		/**
+         * Sends a response to the client without body, without cookies,
+         * and without explicitly specified content type.
+		 * @param code Response code, for example {@code 404 Not Found}
+		 * @throws IOException If there's something wrong with the output stream
+		 */
+        private void writeResponse(String code) throws IOException {
+			writeResponse(code, null, null, null);
+		}
+
+		/**
+		 * Sends a response to the client without body and without cookies.
+		 * @param code Response code, for example {@code 404 Not Found}
+		 * @param type Response type, for example, {@code image/jpeg} or {@code text/html}
+		 * @throws IOException If there's something wrong with the output stream
+		 */
+        private void writeResponse(String code, String type) throws IOException {
+			writeResponse(code, type, null, null);
+		}
+
+		/**
+		 * Sends a response to the client. No {@code Set-Cookie} headers are included.
+		 * @param code Response code, for example {@code 404 Not Found}
+		 * @param type Response type, for example, {@code image/jpeg} or {@code text/html}
+		 * @param data Response data, or {@code null} if there is no data
+		 * @throws IOException If there's something wrong with the output stream
+		 */
+        private void writeResponse(String code, String type, byte[] data) throws IOException {
+			writeResponse(code, type, data, null);
 		}
 
 		/**
 		 * Sends a response to the client.
 		 * @param code Response code, for example {@code 404 Not Found}
 		 * @param type Response type, for example, {@code image/jpeg} or {@code text/html}
-		 * @param data Response data
+		 * @param data Response data, or {@code null} if there is no data
+         * @param cookies Map of cookies to set in the response, if empty or {@code null},
+         *  no cookies are sent
 		 * @throws IOException If there's something wrong with the output stream
 		 */
-        private void writeResponse(String code, String type, byte[] data) throws IOException {
+        private void writeResponse(String code, String type, byte[] data,
+				Map<String, String> cookies) throws IOException {
 			OutputStream stream = socket.getOutputStream();
 			if (code != null) {
 				if (type == null)
@@ -472,6 +522,16 @@ public final class Server {
 				else
 					b.append('0');
 				b.append("\r\n");
+
+				if (cookies != null) {
+					for (Map.Entry<String, String> entry : cookies.entrySet()) {
+						b.append("Set-Cookie: ")
+							.append(entry.getKey())
+							.append("=")
+							.append(entry.getValue())
+							.append("; Path=/\r\n");
+					}
+				}
 
 				if (options.timeout == 0)
 					b.append("Connection: close\r\n");
