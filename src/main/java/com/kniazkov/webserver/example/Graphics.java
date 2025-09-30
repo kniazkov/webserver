@@ -27,6 +27,7 @@ public class Graphics {
      */
     public static void main(String[] args) {
         final Options options = new Options();
+        options.timeout = 5000;
         final BufferedImage image = new BufferedImage(
                 500,
                 500,

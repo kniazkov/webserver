@@ -6,6 +6,7 @@ package com.kniazkov.webserver;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -44,7 +45,7 @@ public final class Server {
 	 * @param handler Handler that handles requests received from clients
 	 */
 	private Server(Options options, Handler handler) {
-		listener = new Listener(options, handler);
+		listener = new Listener(options.clone(), handler);
 		thread = new Thread(listener);
 	}
 
@@ -112,7 +113,7 @@ public final class Server {
 		        while (work)
 		        {
 		            Socket socket = serverSocket.accept();
-		            pool.submit(new Executor(socket, options.wwwRoot, handler));
+		            pool.submit(new Executor(socket, options, handler));
 		        }
 		        pool.shutdownNow();
 				serverSocket.close();
@@ -140,9 +141,9 @@ public final class Server {
 		private final Socket socket;
 
 		/**
-		 * Folder in which web page files, such as 'index.html', are located.
+		 * Options.
 		 */
-		private final String wwwRoot;
+		private final Options options;
 
 		/**
 		 * Handler that handles requests received from a client.
@@ -152,12 +153,12 @@ public final class Server {
 		/**
 		 * Constructor.
 		 * @param socket Socket
-		 * @param wwwRoot Folder in which web page files, such as 'index.html', are located
+		 * @param options Options
 		 * @param handler Handler that handles requests received from a client
 		 */
-        private Executor(Socket socket, String wwwRoot, Handler handler) {
+        private Executor(Socket socket, Options options, Handler handler) {
         	this.socket = socket;
-        	this.wwwRoot = wwwRoot;
+        	this.options = options;
         	this.handler = handler;
         }
 
@@ -169,71 +170,47 @@ public final class Server {
 		public void run() {
 			try {
 				final StreamReader reader = new StreamReader(socket.getInputStream());
-				final Request request = parseRequest(reader);
-				Response response = handler.handle(request);
-				if (response != null) {
-					writeResponse("200 OK", response.getContentType(), response.getData());
+				if (options.timeout == 0) {
+					processRequest(reader);
 				} else {
-					if (request.address.startsWith("/?")) {
-						writeResponse("500 Internal Server Error", null, null);
-					} else {
-						String path = request.address;
-						int index = path.indexOf('?');
-						if (index >= 0)
-							path = path.substring(0, index);
-						if (path.equals("/")) {
-							path = "/index.html";
-						} else {
-							path = URLDecoder.decode(path, "UTF-8");
-						}
+					while (!socket.isClosed()) {
+						socket.setSoTimeout(options.timeout);
 						try {
-							File file = new File(wwwRoot + path);
-							if (file.exists()) {
-								byte[] content = Files.readAllBytes(file.toPath());
-								String extension = "";
-								index = path.lastIndexOf('.');
-								if (index > 0)
-									extension = path.substring(index + 1).toLowerCase();
-								String type = "application/unknown";
-								if (extension.length() > 0) {
-									switch(extension)
-									{
-										case "txt":
-											type = "text/plain";
-											break;
-										case "htm":
-										case "html":
-											type = "text/html";
-											break;
-										case "css":
-											type = "text/css";
-											break;
-										case "js":
-											type = "text/javascript";
-											break;
-										case "jpg":
-										case "jpeg":
-										case "png":
-										case "gif":
-											type = "image/" + extension;
-											break;
-										default:
-											type = "application/" + extension;
-									}
-								}
-								writeResponse("200 OK", type, content);
-							}
-							else {
-								writeResponse("404 Not Found", null, null);
-							}
-						}
-						catch (IOException ignored) {
-							writeResponse("500 Internal Server Error", null, null);
+							processRequest(reader);
+						} catch (SocketTimeoutException ignored) {
+							socket.close();
 						}
 					}
 				}
 			} catch (IOException exception) {
 				throw new RuntimeException(exception);
+			}
+		}
+
+		/**
+		 * Processes a single HTTP request received from the client.
+         *
+		 * Reads the request line, headers, and body (if present), constructs a {@link Request}
+		 * object, invokes the handler, and writes the resulting {@link Response} or a static file
+		 * back to the client.
+		 *
+		 * @param reader stream Reader used to read the raw request data
+		 * @throws IOException If an I/O error occurs while reading the request
+		 *  or writing the response
+		 */
+		private void processRequest(final StreamReader reader) throws IOException {
+			final Request request = parseRequest(reader);
+			if (request == null) {
+				return;
+			}
+			Response response = handler.handle(request);
+			if (response != null) {
+				writeResponse("200 OK", response.getContentType(), response.getData());
+			} else {
+				readAndSendLocalFile(request);
+			}
+			if (request.closeConnection) {
+				socket.close();
 			}
 		}
 
@@ -250,40 +227,61 @@ public final class Server {
 		 * @return a {@link Request} object containing the parsed request data
 		 * @throws IOException if an error occurs while reading from the socket
 		 */
-		private Request parseRequest(StreamReader reader) throws IOException {
+		private Request parseRequest(final StreamReader reader) throws IOException {
 			final Request request = new Request();
 			int contentLength = 0;
 			String boundary = "";
 
 			String line = reader.readLine();
-			while (line.length() > 0) {
-				if (line.startsWith("GET")) {
-					int index = line.indexOf("HTTP");
-					if (index != -1)
-						request.address = line.substring(4,  index - 1);
+			if (line.isEmpty()) {
+				socket.close();
+				return null;
+			}
+			String[] parts = line.split(" ");
+			if (parts.length >= 3) {
+				String methodStr = parts[0].trim();
+				request.address = parts[1].trim();
+				request.httpVersion = parts[2].trim();
+
+				if ("GET".equalsIgnoreCase(methodStr)) {
 					request.method = Method.GET;
-				}
-				else if (line.startsWith("POST")) {
-					int index = line.indexOf("HTTP");
-					if (index != -1)
-						request.address = line.substring(5,  index - 1);
+				} else if ("POST".equalsIgnoreCase(methodStr)) {
 					request.method = Method.POST;
 				}
-				else if (line.startsWith("Content-Length:")) {
-					try {
-						contentLength = Integer.parseInt(line.substring(16));
+			}
+			line = reader.readLine();
+			while (line.length() > 0) {
+				int colon = line.indexOf(':');
+				if (colon > 0) {
+					String name = line.substring(0, colon).trim();
+					String value = line.substring(colon + 1).trim();
+					request.headers.put(name, value);
+
+					if ("Content-Length".equalsIgnoreCase(name)) {
+						try {
+							contentLength = Integer.parseInt(value);
+						} catch (NumberFormatException ignored) {
+							writeResponse("400 Bad Request", null, null);
+							return null;
+						}
+					} else if ("Content-Type".equalsIgnoreCase(name) && value.startsWith("multipart/form-data;")) {
+						int index = value.indexOf("boundary=");
+						if (index != -1) {
+							boundary = value.substring(index + 9);
+						}
+					} else if ("Connection".equalsIgnoreCase(name) && "close".equalsIgnoreCase(value)) {
+						request.closeConnection = true;
 					}
-					catch(NumberFormatException ignored) {
-						writeResponse("500 Internal Server Error", null, null);
-						return null;
-					}
-				}
-				else if (line.startsWith("Content-Type: multipart/form-data;")) {
-					int index = line.indexOf("boundary=");
-					if (index != -1)
-						boundary = line.substring(index + 9);
 				}
 				line = reader.readLine();
+			}
+
+			int qIndex = request.address.indexOf('?');
+			if (qIndex >= 0) {
+				request.path = request.address.substring(0, qIndex);
+				request.query = request.address.substring(qIndex + 1);
+			} else {
+				request.path = request.address;
 			}
 
 			if (request.method == Method.UNKNOWN) {
@@ -296,15 +294,10 @@ public final class Server {
 
 			if (request.method == Method.GET || (request.method == Method.POST && boundary.length() == 0)) {
 				String data = "";
-				if (request.method == Method.GET) {
-					final int index = request.address.indexOf('?');
-					if (index >= 0) {
-						data = request.address.substring(index + 1);
-					}
-				}
-				else {
+				if (request.method == Method.GET)
+					data = request.query;
+				else
 					data = reader.readLine();
-				}
 				if (data.length() > 0) {
 					for (final String item : data.split("&")) {
 						if (item != null && !item.equals("")) {
@@ -385,6 +378,75 @@ public final class Server {
 		}
 
 		/**
+		 * Reads a static file from the local {@code wwwRoot} folder and sends it to the client.
+		 * If the requested path is {@code /}, the default file {@code /index.html} is served.
+		 * If the file does not exist, a {@code 404 Not Found} response is returned.
+		 * If an I/O error occurs, a {@code 500 Internal Server Error} is returned.
+		 *
+		 * @param request The parsed HTTP request containing the target address
+		 * @throws IOException If an error occurs while reading the file or writing the response
+		 */
+		private void readAndSendLocalFile(final Request request) throws IOException {
+			if (request.address.startsWith("/?")) {
+				writeResponse("500 Internal Server Error", null, null);
+			} else {
+				String path = request.address;
+				int index = path.indexOf('?');
+				if (index >= 0)
+					path = path.substring(0, index);
+				if (path.equals("/")) {
+					path = "/index.html";
+				} else {
+					path = URLDecoder.decode(path, "UTF-8");
+				}
+				try {
+					File file = new File(options.wwwRoot + path);
+					if (file.exists()) {
+						byte[] content = Files.readAllBytes(file.toPath());
+						String extension = "";
+						index = path.lastIndexOf('.');
+						if (index > 0)
+							extension = path.substring(index + 1).toLowerCase();
+						String type = "application/unknown";
+						if (extension.length() > 0) {
+							switch(extension)
+							{
+								case "txt":
+									type = "text/plain";
+									break;
+								case "htm":
+								case "html":
+									type = "text/html";
+									break;
+								case "css":
+									type = "text/css";
+									break;
+								case "js":
+									type = "text/javascript";
+									break;
+								case "jpg":
+								case "jpeg":
+								case "png":
+								case "gif":
+									type = "image/" + extension;
+									break;
+								default:
+									type = "application/" + extension;
+							}
+						}
+						writeResponse("200 OK", type, content);
+					}
+					else {
+						writeResponse("404 Not Found", null, null);
+					}
+				}
+				catch (IOException ignored) {
+					writeResponse("500 Internal Server Error", null, null);
+				}
+			}
+		}
+
+		/**
 		 * Sends a response to the client.
 		 * @param code Response code, for example {@code 404 Not Found}
 		 * @param type Response type, for example, {@code image/jpeg} or {@code text/html}
@@ -415,7 +477,12 @@ public final class Server {
 					b.append('0');
 				b.append("\r\n");
 
-				b.append("Connection: close\r\n");
+				if (options.timeout == 0)
+					b.append("Connection: close\r\n");
+				else
+					b.append("Keep-Alive: timeout=")
+						.append(Math.max(options.timeout / 1000, 1))
+						.append(", max=100\r\n");
 
 				b.append("\r\n");
 
