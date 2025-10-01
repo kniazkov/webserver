@@ -30,6 +30,24 @@ public final class Options implements Cloneable {
      */
 	public int timeout = 0;
 
+    /**
+     * Path to the keystore file (e.g. {@code keystore.jks}) used for HTTPS connections.
+     * If {@code null}, the server will start in plain HTTP mode.
+     */
+    public String certificate = null;
+
+    /**
+     * Password for the keystore file.
+     * Ignored if {@link #certificate} is {@code null}.
+     */
+    public String keystorePassword = null;
+
+    /**
+     * Password for the private key inside the keystore.
+     * If {@code null}, {@link #keystorePassword} is used instead.
+     */
+    public String keyPassword = null;
+
 	/**
 	 * Creates and returns a copy of this {@code Options} instance.
 	 *
@@ -42,6 +60,9 @@ public final class Options implements Cloneable {
 		o.wwwRoot = wwwRoot;
 		o.threadCount = threadCount;
 		o.timeout = timeout;
+        o.certificate = certificate;
+        o.keystorePassword = keystorePassword;
+        o.keyPassword = keyPassword;
 		return o;
 	}
 }

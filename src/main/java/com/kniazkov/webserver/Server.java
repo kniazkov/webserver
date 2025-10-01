@@ -10,9 +10,18 @@ import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocketFactory;
 
 /**
  * Simple and perfect web server for everyday use.
@@ -107,9 +116,32 @@ public final class Server {
 		 * Starting point of the listener.
 		 */
 		public void run() {
-			ServerSocket serverSocket = null;
 			try {
-				serverSocket = new ServerSocket(options.port);
+				final ServerSocket serverSocket;
+				if (options.certificate != null) {
+					// HTTPS
+					char[] password = options.keystorePassword != null ?
+						options.keystorePassword.toCharArray() :
+						new char[0];
+					final KeyStore keyStore = KeyStore.getInstance("JKS");
+					try (FileInputStream fis = new FileInputStream(options.certificate)) {
+						keyStore.load(fis, password);
+					}
+					final KeyManagerFactory kmf = KeyManagerFactory.getInstance(
+						KeyManagerFactory.getDefaultAlgorithm()
+					);
+					kmf.init(
+						keyStore,
+						options.keyPassword != null ? options.keyPassword.toCharArray() : password
+					);
+					final SSLContext sslContext = SSLContext.getInstance("TLS");
+					sslContext.init(kmf.getKeyManagers(), null, null);
+					final SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
+					serverSocket = factory.createServerSocket(options.port);
+				} else {
+					// HTTP
+					serverSocket = new ServerSocket(options.port);
+				}
 		        ExecutorService pool = Executors.newFixedThreadPool(options.threadCount);
 		        while (work)
 		        {
@@ -119,7 +151,8 @@ public final class Server {
 		        pool.shutdownNow();
 				serverSocket.close();
 			}
-			catch (IOException exception) {
+			catch (KeyStoreException | IOException | NoSuchAlgorithmException |
+				   CertificateException | UnrecoverableKeyException | KeyManagementException exception) {
 				throw new RuntimeException(exception);
 			}
 		}
@@ -261,7 +294,6 @@ public final class Server {
 				if (colon > 0) {
 					String name = line.substring(0, colon).trim();
 					String value = line.substring(colon + 1).trim();
-					request.headers.put(name, value);
 
 					if ("Content-Length".equalsIgnoreCase(name)) {
 						try {
@@ -293,9 +325,10 @@ public final class Server {
 			}
 
 			int qIndex = request.address.indexOf('?');
+			String query = "";
 			if (qIndex >= 0) {
 				request.path = request.address.substring(0, qIndex);
-				request.query = request.address.substring(qIndex + 1);
+				query = request.address.substring(qIndex + 1);
 			} else {
 				request.path = request.address;
 			}
@@ -311,7 +344,7 @@ public final class Server {
 			if (request.method == Method.GET || (request.method == Method.POST && boundary.length() == 0)) {
 				String data = "";
 				if (request.method == Method.GET)
-					data = request.query;
+					data = query;
 				else
 					data = reader.readLine();
 				if (data.length() > 0) {

@@ -28,6 +28,10 @@ public class Graphics {
     public static void main(String[] args) {
         final Options options = new Options();
         options.timeout = 5000;
+        options.port = 443;
+        options.certificate = "keystore.jks";
+        options.keystorePassword = "changeit";
+        options.keyPassword = "changeit";
         final BufferedImage image = new BufferedImage(
                 500,
                 500,

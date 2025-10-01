@@ -33,12 +33,6 @@ public final class Request {
     public Method method = Method.UNKNOWN;
 
     /**
-     * All HTTP headers received in the request.<br/>
-     * Keys are case-insensitive, values are raw strings without trimming.
-     */
-    public Map<String, String> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-
-    /**
      * Parsed web form data (query string parameters or URL-encoded body).
      */
     public Map<String, String> formData = new TreeMap<>();
@@ -66,10 +60,4 @@ public final class Request {
      * For example, {@code /api/data} in {@code /api/data?x=1}.
      */
     public String path = "";
-
-    /**
-     * Query part of the request URI (everything after '?').
-     * For example, {@code x=1&y=2} in {@code /api/data?x=1&y=2}.
-     */
-    public String query = "";
 }
