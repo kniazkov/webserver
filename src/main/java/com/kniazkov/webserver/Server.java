@@ -3,7 +3,10 @@
  */
 package com.kniazkov.webserver;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -19,6 +22,7 @@ import java.security.cert.CertificateException;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
@@ -96,6 +100,11 @@ public final class Server {
 		private final Handler handler;
 
 		/**
+		 * Server socket.
+		 */
+		private ServerSocket serverSocket;
+
+		/**
 		 * Flag, as long as it is set, the listener will listen the socket.
 		 * As soon as the flag is reset, the server will stop after processing the last request.
 		 */
@@ -109,7 +118,8 @@ public final class Server {
 		public Listener(final Options options, final Handler handler) {
 			this.options = options;
 			this.handler = handler;
-			work = true;
+			serverSocket = null;
+			this.work = false;
 		}
 
 		/**
@@ -117,9 +127,7 @@ public final class Server {
 		 */
 		public void run() {
 			try {
-				final ServerSocket serverSocket;
 				if (options.certificate != null) {
-					// HTTPS
 					char[] password = options.keystorePassword != null ?
 						options.keystorePassword.toCharArray() :
 						new char[0];
@@ -139,16 +147,24 @@ public final class Server {
 					final SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
 					serverSocket = factory.createServerSocket(options.port);
 				} else {
-					// HTTP
 					serverSocket = new ServerSocket(options.port);
 				}
+				work = true;
 		        ExecutorService pool = Executors.newFixedThreadPool(options.threadCount);
 		        while (work)
 		        {
 		            Socket socket = serverSocket.accept();
 		            pool.submit(new Executor(socket, options, handler));
 		        }
-		        pool.shutdownNow();
+				pool.shutdown();
+				try {
+					if (!pool.awaitTermination(30, TimeUnit.SECONDS)) {
+						pool.shutdownNow();
+					}
+				} catch (InterruptedException ignored) {
+					pool.shutdownNow();
+					Thread.currentThread().interrupt();
+				}
 				serverSocket.close();
 			}
 			catch (KeyStoreException | IOException | NoSuchAlgorithmException |
@@ -162,6 +178,12 @@ public final class Server {
 		 */
 		public void stop() {
 			work = false;
+			try {
+				if (serverSocket != null && !serverSocket.isClosed()) {
+					serverSocket.close();
+				}
+			} catch (IOException ignored) {
+			}
 		}
 	}
 
