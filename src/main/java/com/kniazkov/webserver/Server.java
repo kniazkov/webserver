@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Ivan Kniazkov
+ * Copyright (c) 2025 Ivan Kniazkov
  */
 package com.kniazkov.webserver;
 
@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
@@ -31,6 +33,11 @@ import javax.net.ssl.SSLServerSocketFactory;
  * Simple and perfect web server for everyday use.
  */
 public final class Server {
+	/**
+	 * Logger.
+	 */
+	private static final Logger logger = Logger.getLogger(Server.class.getName());
+
 	/**
 	 * Listener that's listening a socket.
 	 */
@@ -146,8 +153,10 @@ public final class Server {
 					sslContext.init(kmf.getKeyManagers(), null, null);
 					final SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
 					serverSocket = factory.createServerSocket(options.port);
+					logger.info("HTTPS server is running on port " + options.port);
 				} else {
 					serverSocket = new ServerSocket(options.port);
+					logger.info("HTTP server is running on port " + options.port);
 				}
 				work = true;
 		        ExecutorService pool = Executors.newFixedThreadPool(options.threadCount);
@@ -167,9 +176,47 @@ public final class Server {
 				}
 				serverSocket.close();
 			}
-			catch (KeyStoreException | IOException | NoSuchAlgorithmException |
-				   CertificateException | UnrecoverableKeyException | KeyManagementException exception) {
-				throw new RuntimeException(exception);
+			catch (KeyStoreException e) {
+				if (logger.isLoggable(Level.SEVERE)) {
+					logger.log(Level.SEVERE, "Failed to load keystore", e);
+				} else {
+					throw new RuntimeException(e);
+				}
+			}
+			catch (CertificateException e) {
+				if (logger.isLoggable(Level.SEVERE)) {
+					logger.log(Level.SEVERE, "Certificate error while initializing SSL", e);
+				} else {
+					throw new RuntimeException(e);
+				}
+			}
+			catch (UnrecoverableKeyException e) {
+				if (logger.isLoggable(Level.SEVERE)) {
+					logger.log(Level.SEVERE, "Unrecoverable key error: wrong password?", e);
+				} else {
+					throw new RuntimeException(e);
+				}
+			}
+			catch (NoSuchAlgorithmException e) {
+				if (logger.isLoggable(Level.SEVERE)) {
+					logger.log(Level.SEVERE, "Algorithm not available for SSL context", e);
+				} else {
+					throw new RuntimeException(e);
+				}
+			}
+			catch (KeyManagementException e) {
+				if (logger.isLoggable(Level.SEVERE)) {
+					logger.log(Level.SEVERE, "Key management initialization failed", e);
+				} else {
+					throw new RuntimeException(e);
+				}
+			}
+			catch (IOException e) {
+				if (logger.isLoggable(Level.SEVERE)) {
+					logger.log(Level.SEVERE, "I/O error while starting server socket", e);
+				} else {
+					throw new RuntimeException(e);
+				}
 			}
 		}
 
@@ -182,7 +229,8 @@ public final class Server {
 				if (serverSocket != null && !serverSocket.isClosed()) {
 					serverSocket.close();
 				}
-			} catch (IOException ignored) {
+			} catch (IOException e) {
+				logger.log(Level.WARNING, "Failed to close server socket cleanly", e);
 			}
 		}
 	}
@@ -238,8 +286,8 @@ public final class Server {
 						}
 					}
 				}
-			} catch (IOException exception) {
-				throw new RuntimeException(exception);
+			} catch (IOException e) {
+				logger.log(Level.WARNING, "I/O error while handling client connection", e);
 			}
 		}
 
@@ -259,7 +307,17 @@ public final class Server {
 			if (request == null) {
 				return;
 			}
-			Response response = handler.handle(request);
+			Response response = null;
+			try {
+				response = handler.handle(request);
+			} catch (Throwable t) {
+				logger.log(Level.WARNING, "Handler threw an exception", t);
+				writeResponse("500 Internal Server Error");
+				if (!socket.isClosed()) {
+					socket.close();
+				}
+				return;
+			}
 			if (response != null) {
 				writeResponse(
 					"200 OK",

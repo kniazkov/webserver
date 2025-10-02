@@ -1,6 +1,6 @@
 # The perfect web server
 
-Version 1.0.2
+Version 1.1.0
 
 ## Goal
 
@@ -40,6 +40,9 @@ class MyHandler implements Handler {
 ```
 
 Specify options for starting the server. In the simplest case, the default options are good.
+
+To use the HTTPS protocol, you will need to specify the file containing the certificate, as well as the passwords
+for this file.
 
 If necessary, create a folder from which to read your project's static files, such as `index.html`.  
 The default name of this folder is `www`.

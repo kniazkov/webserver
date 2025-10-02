@@ -1,7 +1,11 @@
 /*
- * Copyright (c) 2024 Ivan Kniazkov
+ * Copyright (c) 2025 Ivan Kniazkov
  */
 package com.kniazkov.webserver;
+
+import com.kniazkov.json.Json;
+import com.kniazkov.json.JsonException;
+import java.io.File;
 
 /**
  * Some options for starting the server.
@@ -33,6 +37,10 @@ public final class Options implements Cloneable {
     /**
      * Path to the keystore file (e.g. {@code keystore.jks}) used for HTTPS connections.
      * If {@code null}, the server will start in plain HTTP mode.
+	 * Example of how to get self-signed {@code keystore.jks} for test purposes:
+	 * <code>
+	 *     keytool -genkeypair -alias testserver -keyalg RSA -keysize 2048 -validity 365 -keystore keystore.jks -storepass changeit
+	 * </code>
      */
     public String certificate = null;
 
@@ -51,7 +59,7 @@ public final class Options implements Cloneable {
 	/**
 	 * Creates and returns a copy of this {@code Options} instance.
 	 *
-	 * @return a shallow copy of this object
+	 * @return A shallow copy of this object
 	 */
 	@Override
 	public Options clone() {
@@ -64,5 +72,32 @@ public final class Options implements Cloneable {
         o.keystorePassword = keystorePassword;
         o.keyPassword = keyPassword;
 		return o;
+	}
+
+    /**
+     * Loads server options from a JSON configuration file.
+     *
+     * @param file The JSON file containing the serialized {@link Options} data
+     * @return A new {@code Options} instance populated from the file
+     * @throws JsonException If the file cannot be parsed or does not match the expected format
+     */
+	public static Options loadFromFile(final File file) throws JsonException {
+		return Json.parse(file, Options.class);
+	}
+
+   /**
+     * Loads server options from a JSON configuration file, or returns default values if
+     * the file cannot be parsed.
+     *
+     * @param file The JSON file containing the serialized {@link Options} data
+     * @return An {@code Options} instance loaded from the file, or a new instance with
+     *  default values if parsing fails
+     */
+	public static Options loadFromFileOrDefault(final File file) {
+		try {
+			return loadFromFile(file);
+		} catch (JsonException ignored) {
+			return new Options();
+		}
 	}
 }

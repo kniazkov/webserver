@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Ivan Kniazkov
+ * Copyright (c) 2025 Ivan Kniazkov
  */
 package com.kniazkov.webserver.example;
 
@@ -15,10 +15,12 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 /**
- * Web server that generates some graphics and outputs them in PNG format.
+ * HTTPS server that generates some graphics and outputs them in PNG format.
  * How to use:
- *   1. Run the program;
- *   2. Open your browser and type "<a href="http://localhost:8000">...</a>" in the address bar.
+ *   1. Generate SSL certificate:
+ *      keytool -genkeypair -alias testserver -keyalg RSA -keysize 2048 -validity 365 -keystore keystore.jks -storepass changeit
+ *   2. Run the program;
+ *   3. Open your browser and type "<a href="https://localhost">...</a>" in the address bar.
  */
 public class Graphics {
     /**
