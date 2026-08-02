@@ -1,65 +1,28 @@
-# The perfect web server
+# Webserver
 
-Version 1.1.0
+Version 2 is a from-scratch rewrite of Webserver: a small, embeddable HTTP server for Java applications.
 
-## Goal
+> **Status:** early development. This branch currently contains only the project skeleton; there is no public API or usable server implementation yet.
 
-> Write programs that do one thing and do it well. \
-― Unix philosophy
+## Goals
 
-The goal of this project is to create a library that allows you to implement a simple web server
-while writing as little code as possible.
+- A small and straightforward embedded API.
+- Correct HTTP behavior.
+- Secure defaults and explicit resource limits.
+- Predictable lifecycle and concurrency.
+- Comprehensive unit, integration, and raw-socket tests.
 
-## The Maven dependency
+## Requirements
 
-To link the library to your Maven project, add the following dependency to `pom.xml`:
-```xml
-<dependencies>
-    <dependency>
-        <groupId>com.kniazkov</groupId>
-        <artifactId>webserver</artifactId>
-        <version>1.0.2</version>
-    </dependency>
-</dependencies>
+- JDK 17 or newer.
+- Apache Maven 3.9 or newer.
+
+## Build
+
+```shell
+mvn verify
 ```
 
-## How to use
+Production code belongs in `src/main/java`; tests belong in `src/test/java`.
 
-Implement your custom request handler.
-The `Handler` interface as well as other classes are provided with detailed JavaDoc information.
-
-```java
-import com.kniazkov.webserver.*;
-
-class MyHandler implements Handler {
-    @Override
-    public Response handle(final Request request) {
-        //...
-    }
-}
-```
-
-Specify options for starting the server. In the simplest case, the default options are good.
-
-To use the HTTPS protocol, you will need to specify the file containing the certificate, as well as the passwords
-for this file.
-
-If necessary, create a folder from which to read your project's static files, such as `index.html`.  
-The default name of this folder is `www`.
-
-Then, start the web server.
-
-```java
-import com.kniazkov.webserver.*;
-
-class MyProject {
-    public static void main(String[] args) {
-        Handler handler = new MyHandler();
-        Options options = new Options();
-        //...
-        Server.start(options, handler);
-    }
-}
-```
-That's all. Also, you can find some examples in the `example` subfolder.  
-If you have any questions, please create a ticket in the project.
+The previous implementation remains available on the `master` branch.
