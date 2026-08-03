@@ -9,86 +9,118 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Verifies the observable contract of {@link RequestHeader}.
+ */
 final class RequestHeaderTest {
     @Test
-    void buildsACompleteRequestHeader() {
-        final RequestHeader header = RequestHeader.builder()
-                .method("GET")
-                .requestTarget("/search?q=java")
-                .httpVersion(1, 1)
+    void buildCreatesCompleteHeaderAndPreservesCaseInsensitiveRepeatedValues() {
+        final RequestHeader header = RequestHeader.createBuilder()
+                .setMethod("GET")
+                .setRequestTarget("/search?q=java")
+                .setHttpVersion(1, 1)
                 .addHeader("Host", "example.test")
                 .addHeader("Accept", "text/html")
                 .addHeader("accept", "application/json")
                 .build();
 
         assertAll(
-                () -> assertEquals("GET", header.method()),
-                () -> assertEquals("/search?q=java", header.requestTarget()),
-                () -> assertEquals(1, header.httpMajorVersion()),
-                () -> assertEquals(1, header.httpMinorVersion()),
+                () -> assertEquals("GET", header.getMethod()),
+                () -> assertEquals("/search?q=java", header.getRequestTarget()),
+                () -> assertEquals(1, header.getHttpMajorVersion()),
+                () -> assertEquals(1, header.getHttpMinorVersion()),
                 () -> assertEquals(List.of("text/html", "application/json"),
-                        header.headerValues("ACCEPT")),
-                () -> assertEquals("example.test", header.firstHeaderValue("host").orElseThrow()),
-                () -> assertEquals(List.of("example.test"), header.headers().get("HOST"))
+                        header.getHeaderValues("ACCEPT")),
+                () -> assertEquals("example.test",
+                        header.getFirstHeaderValue("host").orElseThrow()),
+                () -> assertEquals(List.of("example.test"), header.getHeaders().get("HOST")),
+                () -> assertEquals(List.of(), header.getHeaderValues("missing")),
+                () -> assertFalse(header.getFirstHeaderValue("missing").isPresent())
         );
     }
 
     @Test
-    void createsADeeplyImmutableSnapshot() {
-        final RequestHeader.Builder builder = RequestHeader.builder()
-                .method("GET")
-                .requestTarget("/")
-                .httpVersion(1, 1)
+    void buildCreatesDeeplyImmutableSnapshotIndependentFromFurtherBuilderChanges() {
+        final RequestHeader.Builder builder = RequestHeader.createBuilder()
+                .setMethod("GET")
+                .setRequestTarget("/")
+                .setHttpVersion(1, 1)
                 .addHeader("X-Test", "one");
         final RequestHeader header = builder.build();
 
         builder.addHeader("X-Test", "two");
 
         assertAll(
-                () -> assertEquals(List.of("one"), header.headerValues("x-test")),
+                () -> assertEquals(List.of("one"), header.getHeaderValues("x-test")),
                 () -> assertThrows(UnsupportedOperationException.class,
-                        () -> header.headers().put("other", List.of("value"))),
+                        () -> header.getHeaders().put("other", List.of("value"))),
                 () -> assertThrows(UnsupportedOperationException.class,
-                        () -> header.headerValues("x-test").add("value"))
+                        () -> header.getHeaderValues("x-test").add("value"))
         );
     }
 
     @Test
-    void rejectsAnIncompleteRequestLine() {
+    void buildRejectsEveryMissingRequiredRequestLineComponent() {
         assertAll(
                 () -> assertThrows(IllegalStateException.class,
-                        () -> RequestHeader.builder()
-                                .requestTarget("/")
-                                .httpVersion(1, 1)
+                        () -> RequestHeader.createBuilder()
+                                .setRequestTarget("/")
+                                .setHttpVersion(1, 1)
                                 .build()),
                 () -> assertThrows(IllegalStateException.class,
-                        () -> RequestHeader.builder()
-                                .method("GET")
-                                .httpVersion(1, 1)
+                        () -> RequestHeader.createBuilder()
+                                .setMethod("GET")
+                                .setHttpVersion(1, 1)
                                 .build()),
                 () -> assertThrows(IllegalStateException.class,
-                        () -> RequestHeader.builder()
-                                .method("GET")
-                                .requestTarget("/")
+                        () -> RequestHeader.createBuilder()
+                                .setMethod("GET")
+                                .setRequestTarget("/")
                                 .build())
         );
     }
 
     @Test
-    void rejectsInvalidTokensAndControlCharacters() {
+    void builderRejectsInvalidTokensControlCharactersAndVersionComponents() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> RequestHeader.builder().method("NOT VALID")),
+                        () -> RequestHeader.createBuilder().setMethod("NOT VALID")),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> RequestHeader.builder().requestTarget("/not valid")),
+                        () -> RequestHeader.createBuilder().setRequestTarget("/not valid")),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> RequestHeader.builder().addHeader("Bad Header", "value")),
+                        () -> RequestHeader.createBuilder().addHeader("Bad Header", "value")),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> RequestHeader.builder().addHeader("X-Test", "value\r\ninjected")),
+                        () -> RequestHeader.createBuilder()
+                                .addHeader("X-Test", "value\r\ninjected")),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> RequestHeader.builder().httpVersion(-1, 1))
+                        () -> RequestHeader.createBuilder().setHttpVersion(-1, 1))
+        );
+    }
+
+    @Test
+    void rejectsNullArgumentsAtEveryPublicNonNullableBoundary() {
+        final RequestHeader header = RequestHeader.createBuilder()
+                .setMethod("GET")
+                .setRequestTarget("/")
+                .setHttpVersion(1, 1)
+                .build();
+
+        assertAll(
+                () -> assertThrows(NullPointerException.class,
+                        () -> RequestHeader.createBuilder().setMethod(null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> RequestHeader.createBuilder().setRequestTarget(null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> RequestHeader.createBuilder().addHeader(null, "value")),
+                () -> assertThrows(NullPointerException.class,
+                        () -> RequestHeader.createBuilder().addHeader("X-Test", null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> header.getHeaderValues(null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> header.getFirstHeaderValue(null))
         );
     }
 }
