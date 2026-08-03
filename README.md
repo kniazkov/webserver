@@ -1,8 +1,10 @@
 # Webserver
 
+[![Build](https://github.com/kniazkov/webserver/actions/workflows/build.yml/badge.svg?branch=v2)](https://github.com/kniazkov/webserver/actions/workflows/build.yml?query=branch%3Av2)
+
 Version 2 is a from-scratch rewrite of Webserver: a small, embeddable HTTP server for Java applications.
 
-> **Status:** early development. This branch currently contains only the project skeleton; there is no public API or usable server implementation yet.
+> **Status:** early development. The API is incomplete, and there is no usable server implementation yet.
 
 ## Goals
 
