@@ -12,29 +12,68 @@ import java.util.Locale;
 public enum HttpMethod {
 
     /**
-     * Retrieves resource from the server.
+     * Retrieves a resource from the server.
      */
-    GET,
+    GET("GET"),
 
     /**
      * Sends data to the server.
      */
-    POST;
+    POST("POST");
+
+    /**
+     * The textual representation of the method.
+     */
+    private final String text;
+
+    /**
+     * Creates a new HTTP method.
+     *
+     * @param text
+     *     the textual representation of the method.
+     */
+    HttpMethod(final String text) {
+        this.text = text;
+    }
+
+    /**
+     * Returns the textual representation of the method.
+     *
+     * @return
+     *     the textual representation.
+     */
+    public String getText() {
+        return text;
+    }
 
     /**
      * Returns the HTTP method corresponding to the specified text.
      *
-     * @param value the textual representation of the HTTP method
-     * @return the corresponding HTTP method
-     * @throws ServerException if the specified method is not supported
+     * @param value
+     *     the textual representation of the HTTP method.
+     * @return
+     *     the corresponding HTTP method.
+     * @throws ServerException
+     *     if the specified method is not supported.
      */
     public static HttpMethod fromString(final String value) throws ServerException {
-        return switch (value.trim().toUpperCase(Locale.ENGLISH)) {
-            case "GET" -> GET;
-            case "POST" -> POST;
-            default -> throw new ServerException(
-                "Unsupported HTTP method: " + value
-            );
-        };
+        final String normalized = value.trim().toUpperCase(Locale.ENGLISH);
+        for (HttpMethod method : values()) {
+            if (method.text.equals(normalized)) {
+                return method;
+            }
+        }
+        throw new ServerException("Unsupported HTTP method: " + value);
+    }
+
+    /**
+     * Returns the textual representation of this method.
+     *
+     * @return
+     *     the textual representation.
+     */
+    @Override
+    public String toString() {
+        return text;
     }
 }
