@@ -11,13 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the observable contract of {@link RequestHeader}.
  */
 final class RequestHeaderTest {
     @Test
-    void buildCreatesCompleteHeaderAndPreservesCaseInsensitiveRepeatedValues() {
+    void createReturnsCompleteHeaderAndPreservesCaseInsensitiveRepeatedValues() {
         final RequestHeader header = RequestHeader.createBuilder()
                 .setMethod("GET")
                 .setRequestTarget("/search?q=java")
@@ -25,7 +26,7 @@ final class RequestHeaderTest {
                 .addHeader("Host", "example.test")
                 .addHeader("Accept", "text/html")
                 .addHeader("accept", "application/json")
-                .build();
+                .create();
 
         assertAll(
                 () -> assertEquals("GET", header.getMethod()),
@@ -43,13 +44,13 @@ final class RequestHeaderTest {
     }
 
     @Test
-    void buildCreatesDeeplyImmutableSnapshotIndependentFromFurtherBuilderChanges() {
+    void createReturnsDeeplyImmutableSnapshotIndependentFromFurtherBuilderChanges() {
         final RequestHeader.Builder builder = RequestHeader.createBuilder()
                 .setMethod("GET")
                 .setRequestTarget("/")
                 .setHttpVersion(1, 1)
                 .addHeader("X-Test", "one");
-        final RequestHeader header = builder.build();
+        final RequestHeader header = builder.create();
 
         builder.addHeader("X-Test", "two");
 
@@ -63,23 +64,42 @@ final class RequestHeaderTest {
     }
 
     @Test
-    void buildRejectsEveryMissingRequiredRequestLineComponent() {
+    void builderImplementsGlobalContractAndReportsValidityWithoutCreatingObjects() {
+        final RequestHeader.Builder concreteBuilder = RequestHeader.createBuilder();
+        final Builder<RequestHeader> builder = concreteBuilder;
+
+        assertFalse(builder.isValid());
+        final IllegalStateException exception =
+                assertThrows(IllegalStateException.class, builder::create);
+        assertEquals("Cannot create RequestHeader: builder is invalid", exception.getMessage());
+
+        concreteBuilder
+                .setMethod("GET")
+                .setRequestTarget("/")
+                .setHttpVersion(1, 1);
+
+        assertTrue(builder.isValid());
+        assertEquals("GET", builder.create().getMethod());
+    }
+
+    @Test
+    void createRejectsEveryMissingRequiredRequestLineComponent() {
         assertAll(
                 () -> assertThrows(IllegalStateException.class,
                         () -> RequestHeader.createBuilder()
                                 .setRequestTarget("/")
                                 .setHttpVersion(1, 1)
-                                .build()),
+                                .create()),
                 () -> assertThrows(IllegalStateException.class,
                         () -> RequestHeader.createBuilder()
                                 .setMethod("GET")
                                 .setHttpVersion(1, 1)
-                                .build()),
+                                .create()),
                 () -> assertThrows(IllegalStateException.class,
                         () -> RequestHeader.createBuilder()
                                 .setMethod("GET")
                                 .setRequestTarget("/")
-                                .build())
+                                .create())
         );
     }
 
@@ -101,12 +121,12 @@ final class RequestHeaderTest {
     }
 
     @Test
-    void rejectsNullArgumentsAtEveryPublicNonNullableBoundary() {
+    void publicMethodsRejectNullAtEveryNonNullableBoundary() {
         final RequestHeader header = RequestHeader.createBuilder()
                 .setMethod("GET")
                 .setRequestTarget("/")
                 .setHttpVersion(1, 1)
-                .build();
+                .create();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,

@@ -46,17 +46,13 @@ public final class RequestHeader {
     private final Map<String, List<String>> headers;
 
     /**
-     * Creates an immutable snapshot of a fully initialized builder.
+     * Creates an immutable snapshot of a valid builder.
      *
      * @param builder source builder, never {@code null}
-     * @throws IllegalStateException if a required request-line component is missing
      */
     private RequestHeader(final Builder builder) {
-        method = requirePresent(builder.method, "method");
-        requestTarget = requirePresent(builder.requestTarget, "request target");
-        if (builder.httpMajorVersion == null || builder.httpMinorVersion == null) {
-            throw new IllegalStateException("HTTP version is required");
-        }
+        method = builder.method;
+        requestTarget = builder.requestTarget;
         httpMajorVersion = builder.httpMajorVersion;
         httpMinorVersion = builder.httpMinorVersion;
 
@@ -148,21 +144,6 @@ public final class RequestHeader {
     public Optional<String> getFirstHeaderValue(final String name) {
         final List<String> values = getHeaderValues(name);
         return values.isEmpty() ? Optional.empty() : Optional.of(values.get(0));
-    }
-
-    /**
-     * Returns a required builder value or reports that it was never set.
-     *
-     * @param value possibly missing builder value
-     * @param name value name used in the exception message, never {@code null}
-     * @return the required value, never {@code null}
-     * @throws IllegalStateException if {@code value} is {@code null}
-     */
-    private static String requirePresent(final String value, final String name) {
-        if (value == null) {
-            throw new IllegalStateException(name + " is required");
-        }
-        return value;
     }
 
     /**
@@ -258,10 +239,11 @@ public final class RequestHeader {
     /**
      * Incrementally constructs immutable {@link RequestHeader} snapshots.
      *
-     * <p>A builder is mutable and not thread-safe. A built header does not observe later changes
-     * to its builder.</p>
+     * <p>A builder is mutable and not thread-safe. A created header does not observe later
+     * changes to its builder.</p>
      */
-    public static final class Builder {
+    public static final class Builder
+            implements com.kniazkov.webserver.Builder<RequestHeader> {
         /**
          * HTTP method token, or {@code null} until configured.
          */
@@ -356,13 +338,31 @@ public final class RequestHeader {
         }
 
         /**
-         * Creates an immutable snapshot of this builder.
+         * Creates an immutable snapshot when this builder is valid.
          *
          * @return a parsed request header, never {@code null}
-         * @throws IllegalStateException if a required request-line component was not set
+         * @throws IllegalStateException if this builder is invalid
          */
-        public RequestHeader build() {
+        @Override
+        public RequestHeader create() {
+            if (!isValid()) {
+                throw new IllegalStateException(
+                        "Cannot create RequestHeader: builder is invalid");
+            }
             return new RequestHeader(this);
+        }
+
+        /**
+         * Determines whether every required request-line component has been configured.
+         *
+         * @return {@code true} when {@link #create()} can create a request header
+         */
+        @Override
+        public boolean isValid() {
+            return method != null
+                    && requestTarget != null
+                    && httpMajorVersion != null
+                    && httpMinorVersion != null;
         }
     }
 }

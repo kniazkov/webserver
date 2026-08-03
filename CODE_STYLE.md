@@ -13,7 +13,7 @@ Examples include:
 - `isOpen`, `hasBody`, or `canReuse` for a boolean query;
 - `addHeader` for adding a value;
 - `setTimeout` for changing a value;
-- `parseRequestLine`, `validateHeader`, and `build` for behavior specific to the domain.
+- `parseRequestLine`, `validateHeader`, and `create` for behavior specific to the domain.
 
 Do not add a meaningless verb merely to satisfy this rule. Fluent builders and deliberately
 record-like accessors may omit a verb when that makes the call site clearer. Prefer a precise
@@ -107,6 +107,20 @@ them. Model case sensitivity, ordering, and multiplicity explicitly.
 
 Prefer narrow types and small public APIs. Do not expose an implementation detail merely because
 it is convenient internally.
+
+## Builders
+
+Every concrete builder, including a builder nested inside another class, implements the global
+`Builder<T>` interface for the type it creates.
+
+- `isValid()` reports whether all state required to create the object is present. It does not
+  mutate the builder or create temporary domain objects.
+- `create()` creates the object when the builder is valid.
+- Calling `create()` on an invalid builder throws `IllegalStateException` with a message that
+  clearly states that an invalid object was about to be created.
+- Builder mutation methods validate each supplied value immediately. `isValid()` checks the
+  builder's complete state and cross-field invariants.
+- A concrete builder may expose additional, domain-specific mutation methods.
 
 ## Collections
 
