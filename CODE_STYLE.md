@@ -64,8 +64,12 @@ Write JavaDoc for:
 - every class, interface, enum, record, annotation, and nested type;
 - every field, including private and package-private fields;
 - every constructor;
-- every method, regardless of visibility, except an overridden method whose inherited contract
-  remains fully applicable.
+- every method, regardless of visibility, except a method annotated with `@Test` or an overridden
+  method whose inherited contract remains fully applicable.
+
+A method annotated with `@Test` never has JavaDoc. Its name must instead be long, specific, and
+behavior-oriented so that a failed test explains the broken contract without a separate comment.
+This exception does not apply to test classes, fields, constructors, or helper methods.
 
 Document an overridden method when it strengthens or changes the inherited contract, including
 nullability, exceptions, side effects, or thread-safety.
@@ -128,7 +132,7 @@ Tests must:
 - exercise the public contract rather than private implementation details;
 - include failure cases and boundary values;
 - prove that immutable results cannot be modified through returned data;
-- use descriptive behavior-oriented names;
+- use long, descriptive, behavior-oriented names instead of JavaDoc on `@Test` methods;
 - remain deterministic and independent of execution order.
 
 ## General Java style
