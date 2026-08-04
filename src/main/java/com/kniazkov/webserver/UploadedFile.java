@@ -23,7 +23,7 @@ public final class UploadedFile {
     /**
      * The content type supplied by the client.
      */
-    private final String contentType;
+    private final ContentType contentType;
 
     /**
      * The uploaded file data.
@@ -44,7 +44,7 @@ public final class UploadedFile {
      */
     public UploadedFile(
         final String fileName,
-        final String contentType,
+        final ContentType contentType,
         final byte[] data
     ) {
         this.fileName = Objects.requireNonNull(
@@ -77,7 +77,7 @@ public final class UploadedFile {
      * @return
      *     the content type.
      */
-    public String getContentType() {
+    public ContentType getContentType() {
         return contentType;
     }
 
