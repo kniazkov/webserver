@@ -30,7 +30,7 @@ final class RequestTest {
         final RequestHeader header = createHeader();
         final UploadedFile file = new UploadedFile(
             "photo.jpg",
-            "image/jpeg",
+            ContentType.fromString("image/jpeg"),
             new byte[] {1, 2, 3}
         );
         final byte[] body = "{\"name\":\"Ivan\"}".getBytes(
@@ -267,7 +267,7 @@ final class RequestTest {
     void preventsFileMapModification() throws ServerException {
         final UploadedFile file = new UploadedFile(
             "photo.jpg",
-            "image/jpeg",
+            ContentType.fromString("image/jpeg"),
             new byte[] {1, 2, 3}
         );
 
@@ -292,7 +292,7 @@ final class RequestTest {
     void preventsFileListModification() throws ServerException {
         final UploadedFile file = new UploadedFile(
             "photo.jpg",
-            "image/jpeg",
+            ContentType.fromString("image/jpeg"),
             new byte[] {1, 2, 3}
         );
 
