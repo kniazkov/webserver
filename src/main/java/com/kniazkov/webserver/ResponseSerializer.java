@@ -13,7 +13,7 @@ import java.util.Objects;
 /**
  * Converts HTTP response objects into complete HTTP messages.
  */
-public final class ResponseSerializer {
+final class ResponseSerializer {
 
     /**
      * The HTTP line separator.
