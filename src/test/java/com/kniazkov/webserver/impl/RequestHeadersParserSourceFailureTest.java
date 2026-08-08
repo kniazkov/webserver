@@ -4,6 +4,7 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.ServerException;
 
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,10 @@ final class RequestHeadersParserSourceFailureTest {
                 + "\r\n",
             25
         );
-        final StringSource stringSource = new StringSource(byteSource);
+        final StringSource stringSource = new StringSource(
+            byteSource,
+            new Options.Builder().build()
+        );
 
         final ServerException exception = assertThrows(
             ServerException.class,
@@ -38,6 +42,37 @@ final class RequestHeadersParserSourceFailureTest {
         );
 
         assertEquals("Unexpected source failure", exception.getMessage());
+    }
+
+    /**
+     * Tests exceeding the header size limit while parsing a request.
+     */
+    @Test
+    void headerSizeExceeded() {
+        final ByteSource byteSource = new StringByteSource(
+            "GET / HTTP/1.1\r\n"
+                + "Host: example.com\r\n"
+                + "\r\n"
+        );
+
+        final Options options = new Options.Builder()
+            .setMaxHeaderSize(20)
+            .build();
+
+        final StringSource stringSource = new StringSource(
+            byteSource,
+            options
+        );
+
+        final ServerException exception = assertThrows(
+            ServerException.class,
+            () -> RequestHeadersParser.parse(stringSource)
+        );
+
+        assertEquals(
+            "Maximum HTTP header size exceeded",
+            exception.getMessage()
+        );
     }
 
     /**

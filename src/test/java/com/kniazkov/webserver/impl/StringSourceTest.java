@@ -4,6 +4,7 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.ServerException;
 
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests {@link StringSource}.
  */
 final class StringSourceTest {
+    /**
+     * Options for test purposes.
+     */
+    private static final Options OPTIONS = new Options.Builder().build();
 
     /**
      * Tests reading a single line.
@@ -23,7 +28,8 @@ final class StringSourceTest {
     @Test
     void singleLine() throws ServerException {
         final StringSource source = new StringSource(
-            new StringByteSource("Hello\r\n")
+            new StringByteSource("Hello\r\n"),
+            OPTIONS
         );
 
         assertEquals("Hello", source.read());
@@ -40,7 +46,8 @@ final class StringSourceTest {
                 "GET / HTTP/1.1\r\n"
                     + "Host: localhost\r\n"
                     + "Accept: text/plain\r\n"
-            )
+            ),
+            OPTIONS
         );
 
         assertEquals("GET / HTTP/1.1", source.read());
@@ -55,7 +62,8 @@ final class StringSourceTest {
     @Test
     void emptyLine() throws ServerException {
         final StringSource source = new StringSource(
-            new StringByteSource("\r\n")
+            new StringByteSource("\r\n"),
+            OPTIONS
         );
 
         assertEquals("", source.read());
@@ -68,7 +76,8 @@ final class StringSourceTest {
     @Test
     void severalEmptyLines() throws ServerException {
         final StringSource source = new StringSource(
-            new StringByteSource("\r\n\r\n\r\n")
+            new StringByteSource("\r\n\r\n\r\n"),
+            OPTIONS
         );
 
         assertEquals("", source.read());
@@ -83,7 +92,8 @@ final class StringSourceTest {
     @Test
     void emptySource() throws ServerException {
         final StringSource source = new StringSource(
-            new StringByteSource("")
+            new StringByteSource(""),
+            OPTIONS
         );
 
         assertNull(source.read());
@@ -96,7 +106,8 @@ final class StringSourceTest {
     @Test
     void incompleteLine() {
         final StringSource source = new StringSource(
-            new StringByteSource("Hello")
+            new StringByteSource("Hello"),
+            OPTIONS
         );
 
         assertThrows(ServerException.class, source::read);
@@ -108,7 +119,8 @@ final class StringSourceTest {
     @Test
     void incompleteLineEnding() {
         final StringSource source = new StringSource(
-            new StringByteSource("Hello\r")
+            new StringByteSource("Hello\r"),
+            OPTIONS
         );
 
         assertThrows(ServerException.class, source::read);
@@ -120,7 +132,8 @@ final class StringSourceTest {
     @Test
     void loneLineFeed() {
         final StringSource source = new StringSource(
-            new StringByteSource("Hello\n")
+            new StringByteSource("Hello\n"),
+            OPTIONS
         );
 
         assertThrows(ServerException.class, source::read);
@@ -132,7 +145,8 @@ final class StringSourceTest {
     @Test
     void lineFeedInsideLine() {
         final StringSource source = new StringSource(
-            new StringByteSource("Hello\nWorld\r\n")
+            new StringByteSource("Hello\nWorld\r\n"),
+            OPTIONS
         );
 
         assertThrows(ServerException.class, source::read);
@@ -144,7 +158,8 @@ final class StringSourceTest {
     @Test
     void invalidCarriageReturn() {
         final StringSource source = new StringSource(
-            new StringByteSource("Hello\rWorld\r\n")
+            new StringByteSource("Hello\rWorld\r\n"),
+            OPTIONS
         );
 
         assertThrows(ServerException.class, source::read);
@@ -160,7 +175,8 @@ final class StringSourceTest {
                 "First\r\n"
                     + "Second\r\n"
                     + "Broken"
-            )
+            ),
+            OPTIONS
         );
 
         assertEquals("First", source.read());
@@ -174,10 +190,32 @@ final class StringSourceTest {
     @Test
     void whitespace() throws ServerException {
         final StringSource source = new StringSource(
-            new StringByteSource("  Hello\tworld  \r\n")
+            new StringByteSource("  Hello\tworld  \r\n"),
+            OPTIONS
         );
 
         assertEquals("  Hello\tworld  ", source.read());
         assertNull(source.read());
+    }
+
+    /**
+     * Tests exceeding the maximum total header size.
+     */
+    @Test
+    void maximumSizeExceeded() throws ServerException {
+        final Options options = new Options.Builder()
+            .setMaxHeaderSize(10)
+            .build();
+
+        final StringSource source = new StringSource(
+            new StringByteSource(
+                "1234\r\n"
+                    + "5678\r\n"
+            ),
+            options
+        );
+
+        assertEquals("1234", source.read());
+        assertThrows(ServerException.class, source::read);
     }
 }
