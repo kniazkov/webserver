@@ -15,9 +15,24 @@ import com.kniazkov.webserver.ServerException;
 final class RequestHeadersParser {
 
     /**
-     * Prevents instantiation.
+     * The source of HTTP lines.
      */
-    private RequestHeadersParser() {
+    private final StringSource source;
+
+    /**
+     * The request headers builder.
+     */
+    private final RequestHeadersBuilder builder;
+
+    /**
+     * Creates a request headers parser.
+     *
+     * @param source
+     *     the source of HTTP lines.
+     */
+    private RequestHeadersParser(final StringSource source) {
+        this.source = source;
+        this.builder = new RequestHeadersBuilder();
     }
 
     /**
@@ -31,29 +46,31 @@ final class RequestHeadersParser {
      *     if the request headers are invalid or incomplete.
      */
     static RequestHeaders parse(final StringSource source)
-            throws ServerException {
-        final RequestHeadersBuilder builder = new RequestHeadersBuilder();
+        throws ServerException {
+        return new RequestHeadersParser(source).parse();
+    }
 
-        parseRequestLine(source, builder);
-        parseHeaderLines(source, builder);
-
+    /**
+     * Parses HTTP request headers.
+     *
+     * @return
+     *     the parsed request headers.
+     * @throws ServerException
+     *     if the request headers are invalid or incomplete.
+     */
+    private RequestHeaders parse() throws ServerException {
+        parseRequestLine();
+        parseHeaderLines();
         return builder.build();
     }
 
     /**
      * Parses the HTTP request line.
      *
-     * @param source
-     *     the source of HTTP lines.
-     * @param builder
-     *     the request headers builder.
      * @throws ServerException
      *     if the request line is invalid or missing.
      */
-    static void parseRequestLine(
-        final StringSource source,
-        final RequestHeadersBuilder builder
-    ) throws ServerException {
+    private void parseRequestLine() throws ServerException {
         final String line = source.read();
 
         if (line == null || line.isEmpty()) {
@@ -91,17 +108,10 @@ final class RequestHeadersParser {
     /**
      * Parses HTTP header lines until an empty line is encountered.
      *
-     * @param source
-     *     the source of HTTP lines.
-     * @param builder
-     *     the request headers builder.
      * @throws ServerException
      *     if the header section is invalid or incomplete.
      */
-    static void parseHeaderLines(
-        final StringSource source,
-        final RequestHeadersBuilder builder
-    ) throws ServerException {
+    private void parseHeaderLines() throws ServerException {
         while (true) {
             final String line = source.read();
 
@@ -115,7 +125,7 @@ final class RequestHeadersParser {
                 return;
             }
 
-            parseHeaderLine(line, builder);
+            parseHeaderLine(line);
         }
     }
 
@@ -124,15 +134,11 @@ final class RequestHeadersParser {
      *
      * @param line
      *     the header line.
-     * @param builder
-     *     the request headers builder.
      * @throws ServerException
      *     if the header line is invalid.
      */
-    static void parseHeaderLine(
-        final String line,
-        final RequestHeadersBuilder builder
-    ) throws ServerException {
+    private void parseHeaderLine(final String line)
+        throws ServerException {
         final int colon = line.indexOf(':');
 
         if (colon <= 0) {
