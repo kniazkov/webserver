@@ -26,7 +26,7 @@ abstract class MultipartParserBaseTest {
     /**
      * Test server options.
      */
-    protected static final Options OPTIONS = new Options.Builder().build();
+    protected static final Options STANDARD_OPTIONS = new Options.Builder().build();
 
     /**
      * Parses multipart data.
@@ -39,6 +39,23 @@ abstract class MultipartParserBaseTest {
      *     if parsing fails.
      */
     protected static Request parse(final String body)
+            throws ServerException {
+        return parse(body, STANDARD_OPTIONS);
+    }
+
+    /**
+     * Parses multipart data with specified options.
+     *
+     * @param body
+     *     the multipart body.
+     * @param options
+     *     the parser options.
+     * @return
+     *     the resulting request.
+     * @throws ServerException
+     *     if parsing fails.
+     */
+    protected static Request parse(final String body, final Options options)
         throws ServerException {
         final RequestBuilder builder = new RequestBuilder()
             .setHeaders(headers())
@@ -47,14 +64,13 @@ abstract class MultipartParserBaseTest {
         MultipartParser.parse(
             new StringByteSource(body),
             BOUNDARY,
-            OPTIONS,
+            options,
             builder
         );
 
         return builder.build();
     }
-
-    /**
+        /**
      * Returns test request headers.
      *
      * @return
