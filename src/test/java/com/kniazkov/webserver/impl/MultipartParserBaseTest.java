@@ -44,6 +44,21 @@ abstract class MultipartParserBaseTest {
     }
 
     /**
+     * Parses multipart data.
+     *
+     * @param body
+     *     the multipart body as byte array.
+     * @return
+     *     the resulting request.
+     * @throws ServerException
+     *     if parsing fails.
+     */
+    protected static Request parse(final byte[] body)
+            throws ServerException {
+        return parse(body, STANDARD_OPTIONS);
+    }
+
+    /**
      * Parses multipart data with specified options.
      *
      * @param body
@@ -70,7 +85,36 @@ abstract class MultipartParserBaseTest {
 
         return builder.build();
     }
-        /**
+
+    /**
+     * Parses multipart data with specified options.
+     *
+     * @param body
+     *     the multipart body as byte array.
+     * @param options
+     *     the parser options.
+     * @return
+     *     the resulting request.
+     * @throws ServerException
+     *     if parsing fails.
+     */
+    protected static Request parse(final byte[] body, final Options options)
+        throws ServerException {
+        final RequestBuilder builder = new RequestBuilder()
+            .setHeaders(headers())
+            .setBody(body);
+
+        MultipartParser.parse(
+            new ByteArrayByteSource(body),
+            BOUNDARY,
+            options,
+            builder
+        );
+
+        return builder.build();
+    }
+
+    /**
      * Returns test request headers.
      *
      * @return
