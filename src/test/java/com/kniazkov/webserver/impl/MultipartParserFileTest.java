@@ -5,19 +5,20 @@
 package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.ContentType;
+import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.Request;
 import com.kniazkov.webserver.ServerException;
 import com.kniazkov.webserver.UploadedFile;
 
 import org.junit.jupiter.api.Test;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests parsing uploaded files from multipart form data.
@@ -247,14 +248,102 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
     }
 
     /**
-     * Converts a string to bytes.
-     *
-     * @param value
-     *     the string.
-     * @return
-     *     the bytes.
+     * Tests a file whose size is exactly the configured limit.
      */
-    private static byte[] bytes(final String value) {
-        return value.getBytes(StandardCharsets.US_ASCII);
+    @Test
+    void exactFileSizeLimit() throws ServerException {
+        final Options options = new Options.Builder()
+            .setMaxFileSize(5)
+            .build();
+
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"file\"; filename=\"data.bin\"\r\n"
+                + "\r\n"
+                + "12345\r\n"
+                + "--" + BOUNDARY + "--",
+            options
+        );
+
+        assertArrayEquals(
+            bytes("12345"),
+            request.getFiles().get("file").get(0).getData()
+        );
+    }
+
+    /**
+     * Tests a file exceeding the configured limit by one byte.
+     */
+    @Test
+    void fileSizeLimitExceededByOne() {
+        final Options options = new Options.Builder()
+            .setMaxFileSize(5)
+            .build();
+
+        assertThrows(
+            ServerException.class,
+            () -> parse(
+                "--" + BOUNDARY + "\r\n"
+                    + "Content-Disposition: form-data; "
+                    + "name=\"file\"; filename=\"data.bin\"\r\n"
+                    + "\r\n"
+                    + "123456\r\n"
+                    + "--" + BOUNDARY + "--",
+                options
+            )
+        );
+    }
+
+    /**
+     * Tests that the file size limit is applied independently to each file.
+     */
+    @Test
+    void fileLimitIsPerFile() throws ServerException {
+        final Options options = new Options.Builder()
+            .setMaxFileSize(5)
+            .build();
+
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"files\"; filename=\"one.bin\"\r\n"
+                + "\r\n"
+                + "12345\r\n"
+                + "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"files\"; filename=\"two.bin\"\r\n"
+                + "\r\n"
+                + "abcde\r\n"
+                + "--" + BOUNDARY + "--",
+            options
+        );
+
+        assertEquals(2, request.getFiles().get("files").size());
+    }
+
+    /**
+     * Tests that ordinary form fields are not limited by maxFileSize.
+     */
+    @Test
+    void formFieldIsNotLimitedByFileSize() throws ServerException {
+        final Options options = new Options.Builder()
+            .setMaxFileSize(1)
+            .build();
+
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; name=\"field\"\r\n"
+                + "\r\n"
+                + "this is much larger than one byte\r\n"
+                + "--" + BOUNDARY + "--",
+            options
+        );
+
+        assertEquals(
+            List.of("this is much larger than one byte"),
+            request.getForm().get("field")
+        );
+        assertTrue(request.getFiles().isEmpty());
     }
 }

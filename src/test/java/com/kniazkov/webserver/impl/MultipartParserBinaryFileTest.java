@@ -274,16 +274,4 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         return result;
     }
-
-    /**
-     * Converts ASCII text to bytes.
-     *
-     * @param value
-     *     the text.
-     * @return
-     *     the bytes.
-     */
-    private static byte[] bytes(final String value) {
-        return value.getBytes(StandardCharsets.US_ASCII);
-    }
 }

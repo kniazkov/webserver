@@ -239,6 +239,69 @@ final class MultipartParserInvalidTest extends MultipartParserBaseTest {
     }
 
     /**
+     * Tests duplicate Content-Disposition headers.
+     */
+    @Test
+    void duplicateContentDisposition() {
+        assertInvalid(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; name=\"one\"\r\n"
+                + "Content-Disposition: form-data; name=\"two\"\r\n"
+                + "\r\n"
+                + "value\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+    }
+
+    /**
+     * Tests duplicate Content-Type headers.
+     */
+    @Test
+    void duplicateContentType() {
+        assertInvalid(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"file\"; filename=\"data.bin\"\r\n"
+                + "Content-Type: text/plain\r\n"
+                + "Content-Type: application/octet-stream\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+    }
+
+    /**
+     * Tests an empty file name.
+     */
+    @Test
+    void emptyFileName() {
+        assertInvalid(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"file\"; filename=\"\"\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+    }
+
+    /**
+     * Tests a file without a form field name.
+     */
+    @Test
+    void fileWithoutFieldName() {
+        assertInvalid(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "filename=\"data.bin\"\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+    }
+
+
+    /**
      * Verifies that parsing the specified multipart body fails.
      *
      * @param body

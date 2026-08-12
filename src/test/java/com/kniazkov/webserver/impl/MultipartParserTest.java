@@ -4,9 +4,11 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.Request;
 import com.kniazkov.webserver.ServerException;
 
+import com.kniazkov.webserver.UploadedFile;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -194,5 +196,154 @@ final class MultipartParserTest extends MultipartParserBaseTest {
         }
 
         assertEquals(tail, remaining.toString());
+    }
+
+    /**
+     * Tests an unknown file content type.
+     */
+    @Test
+    void unknownContentType() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"file\"; filename=\"data.bin\"\r\n"
+                + "Content-Type: application/x-strange-thing\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        final UploadedFile file =
+            request.getFiles().get("file").get(0);
+
+        assertEquals(
+            ContentType.APPLICATION_OCTET_STREAM,
+            file.getContentType()
+        );
+    }
+
+    /**
+     * Tests a file without a Content-Type header.
+     */
+    @Test
+    void missingContentType() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"file\"; filename=\"data.bin\"\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        final UploadedFile file =
+            request.getFiles().get("file").get(0);
+
+        assertEquals(
+            ContentType.APPLICATION_OCTET_STREAM,
+            file.getContentType()
+        );
+    }
+
+    /**
+     * Tests that unknown part headers are ignored.
+     */
+    @Test
+    void unknownHeaders() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "X-Something: one\r\n"
+                + "Another-Header: two\r\n"
+                + "Content-Disposition: form-data; name=\"field\"\r\n"
+                + "\r\n"
+                + "value\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        assertEquals(
+            List.of("value"),
+            request.getForm().get("field")
+        );
+    }
+
+    /**
+     * Tests Content-Disposition parameters in a different order.
+     */
+    @Test
+    void dispositionParameterOrder() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "filename=\"data.bin\"; name=\"file\"\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        final UploadedFile file =
+            request.getFiles().get("file").get(0);
+
+        assertEquals("data.bin", file.getName());
+        assertArrayEquals(bytes("data"), file.getData());
+    }
+
+    /**
+     * Tests unquoted Content-Disposition parameters.
+     */
+    @Test
+    void unquotedDispositionParameters() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=file; filename=data.bin\r\n"
+                + "\r\n"
+                + "data\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        final UploadedFile file =
+            request.getFiles().get("file").get(0);
+
+        assertEquals("data.bin", file.getName());
+        assertArrayEquals(bytes("data"), file.getData());
+    }
+
+    /**
+     * Tests optional whitespace around disposition parameters.
+     */
+    @Test
+    void dispositionWhitespace() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data ; "
+                + " name = \"field\" \r\n"
+                + "\r\n"
+                + "value\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        assertEquals(
+            List.of("value"),
+            request.getForm().get("field")
+        );
+    }
+
+    /**
+     * Tests a final boundary without trailing CRLF.
+     */
+    @Test
+    void finalBoundaryWithoutCrlf() throws ServerException {
+        final Request request = parse(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; name=\"field\"\r\n"
+                + "\r\n"
+                + "value\r\n"
+                + "--" + BOUNDARY + "--"
+        );
+
+        assertEquals(
+            List.of("value"),
+            request.getForm().get("field")
+        );
     }
 }

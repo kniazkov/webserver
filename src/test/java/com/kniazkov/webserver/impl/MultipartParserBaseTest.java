@@ -129,4 +129,17 @@ abstract class MultipartParserBaseTest {
             .setVersion(HttpVersion.HTTP_1_1)
             .build();
     }
+
+
+    /**
+     * Converts ASCII text to bytes.
+     *
+     * @param value
+     *     the text.
+     * @return
+     *     the bytes.
+     */
+    protected static byte[] bytes(final String value) {
+        return value.getBytes(StandardCharsets.US_ASCII);
+    }
 }
