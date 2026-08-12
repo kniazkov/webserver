@@ -189,6 +189,16 @@ final class MultipartParser {
                 line.substring(colon + 1)
             );
 
+            if (
+                (name.equals("Content-Disposition")
+                    || name.equals("Content-Type"))
+                    && headers.containsKey(name)
+            ) {
+                throw new ServerException(
+                    "Duplicate multipart header: " + name
+                );
+            }
+
             headers.put(name, value);
         }
 
@@ -213,9 +223,15 @@ final class MultipartParser {
 
         final String filename = parameters.get("filename");
 
-        final ContentType contentType = filename == null
-            ? ContentType.APPLICATION_OCTET_STREAM
-            : ContentType.fromString(headers.get("Content-Type"));
+        if (filename != null && filename.isEmpty()) {
+            throw new ServerException(
+                "Multipart file name is missing"
+            );
+        }
+
+        final ContentType contentType = ContentType.fromString(
+            headers.get("Content-Type")
+        );
 
         return new PartHeaders(
             name,
@@ -290,7 +306,6 @@ final class MultipartParser {
         final int second = source.read();
 
         if (first == '-' && second == '-') {
-            readOptionalFinalCrlf();
             return true;
         }
 
@@ -301,28 +316,6 @@ final class MultipartParser {
         throw new ServerException(
             "Invalid multipart boundary suffix"
         );
-    }
-
-    /**
-     * Reads optional CRLF after the final boundary.
-     *
-     * @throws ServerException
-     *     if trailing data is invalid.
-     */
-    private void readOptionalFinalCrlf() throws ServerException {
-        final int value = source.read();
-
-        if (value == -1) {
-            return;
-        }
-
-        if (value != Lexer.CR) {
-            throw new ServerException(
-                "Invalid multipart ending"
-            );
-        }
-
-        require(Lexer.LF);
     }
 
     /**
@@ -373,39 +366,155 @@ final class MultipartParser {
     private static Map<String, String> parseContentDisposition(
         final String value
     ) throws ServerException {
-        final String[] parts = value.split(";");
-        if (!parts[0].trim().equalsIgnoreCase("form-data")) {
+        final Map<String, String> result = new LinkedHashMap<>();
+
+        int index = 0;
+        while (
+            index < value.length()
+                && Lexer.isWhitespace(value.charAt(index))
+        ) {
+            index++;
+        }
+
+        final int typeStart = index;
+        while (
+            index < value.length()
+                && value.charAt(index) != ';'
+        ) {
+            index++;
+        }
+
+        final String type = trimWhitespace(
+            value.substring(typeStart, index)
+        );
+
+        if (!type.equalsIgnoreCase("form-data")) {
             throw new ServerException(
                 "Invalid multipart Content-Disposition"
             );
         }
 
-        final Map<String, String> result = new LinkedHashMap<>();
+        while (index < value.length()) {
+            index++;
 
-        for (int index = 1; index < parts.length; index++) {
-            final String part = parts[index].trim();
-            final int equals = part.indexOf('=');
+            while (
+                index < value.length()
+                    && Lexer.isWhitespace(value.charAt(index))
+            ) {
+                index++;
+            }
 
-            if (equals <= 0) {
+            final int nameStart = index;
+
+            while (
+                index < value.length()
+                    && value.charAt(index) != '='
+                    && value.charAt(index) != ';'
+            ) {
+                index++;
+            }
+
+            if (
+                index == nameStart
+                    || index == value.length()
+                    || value.charAt(index) != '='
+            ) {
                 throw new ServerException(
                     "Invalid multipart Content-Disposition"
                 );
             }
 
-            final String name = part.substring(0, equals).trim();
-            String parameterValue = part.substring(equals + 1).trim();
+            final String name = trimWhitespace(
+                value.substring(nameStart, index)
+            );
+
+            if (name.isEmpty()) {
+                throw new ServerException(
+                    "Invalid multipart Content-Disposition"
+                );
+            }
+
+            index++;
+
+            while (
+                index < value.length()
+                    && Lexer.isWhitespace(value.charAt(index))
+            ) {
+                index++;
+            }
+
+            final String parameterValue;
 
             if (
-                parameterValue.length() >= 2
-                    && parameterValue.charAt(0) == '"'
-                    && parameterValue.charAt(
-                    parameterValue.length() - 1
-                ) == '"'
+                index < value.length()
+                    && value.charAt(index) == '"'
             ) {
-                parameterValue = parameterValue.substring(
-                    1,
-                    parameterValue.length() - 1
+                index++;
+                final StringBuilder builder = new StringBuilder();
+                boolean closed = false;
+
+                while (index < value.length()) {
+                    final char ch = value.charAt(index++);
+
+                    if (ch == '"') {
+                        closed = true;
+                        break;
+                    }
+
+                    if (ch == '\\') {
+                        if (index == value.length()) {
+                            throw new ServerException(
+                                "Invalid multipart Content-Disposition"
+                            );
+                        }
+                        builder.append(value.charAt(index++));
+                    } else {
+                        builder.append(ch);
+                    }
+                }
+
+                if (!closed) {
+                    throw new ServerException(
+                        "Invalid multipart Content-Disposition"
+                    );
+                }
+
+                parameterValue = builder.toString();
+
+                while (
+                    index < value.length()
+                        && Lexer.isWhitespace(value.charAt(index))
+                ) {
+                    index++;
+                }
+
+                if (
+                    index < value.length()
+                        && value.charAt(index) != ';'
+                ) {
+                    throw new ServerException(
+                        "Invalid multipart Content-Disposition"
+                    );
+                }
+            } else {
+                final int valueStart = index;
+
+                while (
+                    index < value.length()
+                        && value.charAt(index) != ';'
+                ) {
+                    index++;
+                }
+
+                parameterValue = trimWhitespace(
+                    value.substring(valueStart, index)
                 );
+
+                if (parameterValue.isEmpty()) {
+                    throw new ServerException(
+                        "Invalid multipart Content-Disposition"
+                    );
+                }
             }
 
             result.put(name, parameterValue);
