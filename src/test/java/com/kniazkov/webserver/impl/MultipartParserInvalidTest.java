@@ -215,20 +215,6 @@ final class MultipartParserInvalidTest extends MultipartParserBaseTest {
     }
 
     /**
-     * Tests trailing garbage after the final boundary.
-     */
-    @Test
-    void garbageAfterFinalBoundary() {
-        assertInvalid(
-            "--" + BOUNDARY + "\r\n"
-                + "Content-Disposition: form-data; name=\"name\"\r\n"
-                + "\r\n"
-                + "Ivan\r\n"
-                + "--" + BOUNDARY + "--garbage"
-        );
-    }
-
-    /**
      * Tests a file exceeding the configured maximum size.
      */
     @Test

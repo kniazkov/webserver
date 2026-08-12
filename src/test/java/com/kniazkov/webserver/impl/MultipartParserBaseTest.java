@@ -122,7 +122,7 @@ abstract class MultipartParserBaseTest {
      * @throws ServerException
      *     if building fails.
      */
-    private static RequestHeaders headers() throws ServerException {
+    protected static RequestHeaders headers() throws ServerException {
         return new RequestHeadersBuilder()
             .setMethod(HttpMethod.POST)
             .setTarget("/")

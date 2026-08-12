@@ -159,4 +159,40 @@ final class MultipartParserTest extends MultipartParserBaseTest {
             request.getBody()
         );
     }
+
+    /**
+     * Tests that data after the final boundary remains unread.
+     */
+    @Test
+    void dataAfterFinalBoundary() throws ServerException {
+        final String tail = "GET /next HTTP/1.1\r\n";
+
+        final ByteSource source = new StringByteSource(
+            "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; name=\"name\"\r\n"
+                + "\r\n"
+                + "Ivan\r\n"
+                + "--" + BOUNDARY + "--"
+                + tail
+        );
+
+        final RequestBuilder builder = new RequestBuilder()
+            .setHeaders(headers());
+
+        MultipartParser.parse(
+            source,
+            BOUNDARY,
+            STANDARD_OPTIONS,
+            builder
+        );
+
+        final StringBuilder remaining = new StringBuilder();
+        int value;
+
+        while ((value = source.read()) != -1) {
+            remaining.append((char) value);
+        }
+
+        assertEquals(tail, remaining.toString());
+    }
 }
