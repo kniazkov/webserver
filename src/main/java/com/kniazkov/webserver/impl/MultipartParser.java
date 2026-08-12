@@ -110,12 +110,14 @@ final class MultipartParser {
 
         while (true) {
             final PartHeaders headers = readPartHeaders();
-            final byte[] data = readPartData(headers.filename != null);
+            final PartData part = readPartData(
+                headers.filename != null
+            );
 
             if (headers.filename == null) {
                 builder.addForm(
                     headers.name,
-                    new String(data, StandardCharsets.UTF_8)
+                    new String(part.data, StandardCharsets.UTF_8)
                 );
             } else {
                 builder.addFile(
@@ -123,12 +125,12 @@ final class MultipartParser {
                     new UploadedFileImpl(
                         headers.filename,
                         headers.contentType,
-                        data
+                        part.data
                     )
                 );
             }
 
-            if (readBoundarySuffix()) {
+            if (part.last) {
                 return;
             }
         }
@@ -202,7 +204,9 @@ final class MultipartParser {
             headers.put(name, value);
         }
 
-        final String disposition = headers.get("Content-Disposition");
+        final String disposition = headers.get(
+            "Content-Disposition"
+        );
 
         if (disposition == null) {
             throw new ServerException(
@@ -246,11 +250,11 @@ final class MultipartParser {
      * @param file
      *     whether the part contains an uploaded file.
      * @return
-     *     the part data.
+     *     the part data and information about the following boundary.
      * @throws ServerException
      *     if the source ends unexpectedly or the file is too large.
      */
-    private byte[] readPartData(final boolean file)
+    private PartData readPartData(final boolean file)
         throws ServerException {
         final ByteAccumulator accumulator = new ByteAccumulator();
 
@@ -275,47 +279,80 @@ final class MultipartParser {
                 );
             }
 
-            if (accumulator.endsWith(dataBoundary)) {
-                accumulator.removeLast(dataBoundary.length);
-
-                if (
-                    file
-                        && accumulator.size()
-                        > options.getMaxFileSize()
-                ) {
-                    throw new ServerException(
-                        "Maximum uploaded file size exceeded"
-                    );
-                }
-
-                return accumulator.toByteArray();
+            if (!accumulator.endsWith(dataBoundary)) {
+                continue;
             }
+
+            final int first = source.read();
+
+            if (first == -1) {
+                throw new ServerException(
+                    "Unexpected end of multipart data"
+                );
+            }
+
+            final int second = source.read();
+
+            if (second == -1) {
+                throw new ServerException(
+                    "Unexpected end of multipart data"
+                );
+            }
+
+            if (
+                first == Lexer.CR
+                    && second == Lexer.LF
+            ) {
+                accumulator.removeLast(dataBoundary.length);
+                validateFileSize(accumulator, file);
+
+                return new PartData(
+                    accumulator.toByteArray(),
+                    false
+                );
+            }
+
+            if (
+                first == '-'
+                    && second == '-'
+            ) {
+                accumulator.removeLast(dataBoundary.length);
+                validateFileSize(accumulator, file);
+
+                return new PartData(
+                    accumulator.toByteArray(),
+                    true
+                );
+            }
+
+            /*
+             * The sequence only looked like a boundary.
+             * Both following bytes are ordinary part data.
+             */
+            accumulator.append(first);
+            accumulator.append(second);
         }
     }
 
     /**
-     * Reads the suffix following a multipart boundary.
+     * Checks the final size of an uploaded file.
      *
-     * @return
-     *     {@code true} if this is the final boundary.
+     * @param accumulator
+     *     the accumulated part data.
+     * @param file
+     *     whether the part contains an uploaded file.
      * @throws ServerException
-     *     if the boundary suffix is invalid.
+     *     if the file is too large.
      */
-    private boolean readBoundarySuffix() throws ServerException {
-        final int first = source.read();
-        final int second = source.read();
-
-        if (first == '-' && second == '-') {
-            return true;
+    private void validateFileSize(
+        final ByteAccumulator accumulator,
+        final boolean file
+    ) throws ServerException {
+        if (file && accumulator.size() > options.getMaxFileSize()) {
+            throw new ServerException(
+                "Maximum uploaded file size exceeded"
+            );
         }
-
-        if (first == Lexer.CR && second == Lexer.LF) {
-            return false;
-        }
-
-        throw new ServerException(
-            "Invalid multipart boundary suffix"
-        );
     }
 
     /**
@@ -369,6 +406,7 @@ final class MultipartParser {
         final Map<String, String> result = new LinkedHashMap<>();
 
         int index = 0;
+
         while (
             index < value.length()
                 && Lexer.isWhitespace(value.charAt(index))
@@ -377,6 +415,7 @@ final class MultipartParser {
         }
 
         final int typeStart = index;
+
         while (
             index < value.length()
                 && value.charAt(index) != ';'
@@ -467,6 +506,7 @@ final class MultipartParser {
                                 "Invalid multipart Content-Disposition"
                             );
                         }
+
                         builder.append(value.charAt(index++));
                     } else {
                         builder.append(ch);
@@ -619,6 +659,38 @@ final class MultipartParser {
             this.name = name;
             this.filename = filename;
             this.contentType = contentType;
+        }
+    }
+
+    /**
+     * Parsed data of one multipart part.
+     */
+    private static final class PartData {
+
+        /**
+         * The part data.
+         */
+        private final byte[] data;
+
+        /**
+         * Whether the part is followed by the final boundary.
+         */
+        private final boolean last;
+
+        /**
+         * Creates parsed part data.
+         *
+         * @param data
+         *     the part data.
+         * @param last
+         *     whether this is the last part.
+         */
+        private PartData(
+            final byte[] data,
+            final boolean last
+        ) {
+            this.data = data;
+            this.last = last;
         }
     }
 }
