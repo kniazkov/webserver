@@ -6,6 +6,7 @@ package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.Request;
 import com.kniazkov.webserver.RequestHeaders;
+import com.kniazkov.webserver.RequestPath;
 import com.kniazkov.webserver.ServerException;
 import com.kniazkov.webserver.UploadedFile;
 
@@ -23,6 +24,11 @@ final class RequestBuilder {
      * The request headers.
      */
     private RequestHeaders headers;
+
+    /**
+     * The request path.
+     */
+    private RequestPath path;
 
     /**
      * The query parameters.
@@ -59,6 +65,19 @@ final class RequestBuilder {
      */
     RequestBuilder setHeaders(final RequestHeaders value) {
         headers = value;
+        return this;
+    }
+
+    /**
+     * Sets the request path.
+     *
+     * @param value
+     *     the request path.
+     * @return
+     *     this builder.
+     */
+    RequestBuilder setPath(final RequestPath value) {
+        path = value;
         return this;
     }
 
@@ -147,9 +166,13 @@ final class RequestBuilder {
         if (headers == null) {
             throw new ServerException("Request headers are not specified");
         }
+        if (path == null) {
+            throw new ServerException("Request path is not specified");
+        }
 
         return new RequestImpl(
             headers,
+            path,
             query,
             form,
             files,

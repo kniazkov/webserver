@@ -6,6 +6,7 @@ package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.Request;
 import com.kniazkov.webserver.RequestHeaders;
+import com.kniazkov.webserver.RequestPath;
 import com.kniazkov.webserver.UploadedFile;
 
 import java.util.LinkedHashMap;
@@ -21,6 +22,11 @@ final class RequestImpl implements Request {
      * The request headers.
      */
     private final RequestHeaders headers;
+
+    /**
+     * The request path.
+     */
+    private final RequestPath path;
 
     /**
      * The query parameters.
@@ -52,6 +58,8 @@ final class RequestImpl implements Request {
      *
      * @param headers
      *     the request headers.
+     * @param path
+     *     the request path.
      * @param query
      *     the query parameters.
      * @param form
@@ -65,6 +73,7 @@ final class RequestImpl implements Request {
      */
     RequestImpl(
         final RequestHeaders headers,
+        final RequestPath path,
         final Map<String, List<String>> query,
         final Map<String, List<String>> form,
         final Map<String, List<UploadedFile>> files,
@@ -72,6 +81,7 @@ final class RequestImpl implements Request {
         final byte[] body
     ) {
         this.headers = headers;
+        this.path = path;
         this.query = copyLists(query);
         this.form = copyLists(form);
         this.files = copyLists(files);
@@ -82,6 +92,11 @@ final class RequestImpl implements Request {
     @Override
     public RequestHeaders getHeaders() {
         return headers;
+    }
+
+    @Override
+    public RequestPath getPath() {
+        return path;
     }
 
     @Override

@@ -24,6 +24,14 @@ public interface Request {
     RequestHeaders getHeaders();
 
     /**
+     * Returns the parsed request path.
+     *
+     * @return
+     *     the request path.
+     */
+    RequestPath getPath();
+
+    /**
      * Returns parameters obtained from the request target query string.
      *
      * @return
