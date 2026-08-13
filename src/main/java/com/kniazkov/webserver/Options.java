@@ -4,6 +4,9 @@
 
 package com.kniazkov.webserver;
 
+import com.kniazkov.webserver.impl.DefaultErrorPage;
+import com.kniazkov.webserver.impl.DefaultHandler;
+
 import java.util.Objects;
 
 /**
@@ -67,6 +70,16 @@ public final class Options {
     private final long maxHeaderSize;
 
     /**
+     * The error page generator.
+     */
+    private final ErrorPage errorPage;
+
+    /**
+     * The request handler.
+     */
+    private final Handler handler;
+
+    /**
      * Creates server options.
      *
      * @param builder
@@ -84,6 +97,8 @@ public final class Options {
                 maxFileSize
             )
         );
+        errorPage = builder.errorPage;
+        handler = builder.handler;
     }
 
     /**
@@ -139,6 +154,26 @@ public final class Options {
     }
 
     /**
+     * Returns the error page generator.
+     *
+     * @return
+     *     the error page generator.
+     */
+    public ErrorPage getErrorPage() {
+        return errorPage;
+    }
+
+    /**
+     * Returns the request handler.
+     *
+     * @return
+     *     the request handler.
+     */
+    public Handler getHandler() {
+        return handler;
+    }
+
+    /**
      * Builds web server options.
      */
     public static final class Builder {
@@ -167,6 +202,16 @@ public final class Options {
          * The maximum HTTP header section size, in bytes.
          */
         private long maxHeaderSize = DEFAULT_MAX_HEADER_SIZE;
+
+        /**
+         * The error page generator.
+         */
+        private ErrorPage errorPage = DefaultErrorPage.getInstance();
+
+        /**
+         * The request handler.
+         */
+        private Handler handler = DefaultHandler.getInstance();
 
         /**
          * Sets the server port.
@@ -274,6 +319,42 @@ public final class Options {
             }
 
             maxHeaderSize = value;
+            return this;
+        }
+
+        /**
+         * Sets the error page generator.
+         *
+         * @param value
+         *     the error page generator.
+         * @return
+         *     this builder.
+         * @throws NullPointerException
+         *     if the value is {@code null}.
+         */
+        public Builder setErrorPage(final ErrorPage value) {
+            errorPage = Objects.requireNonNull(
+                value,
+                "Error page must not be null"
+            );
+            return this;
+        }
+
+        /**
+         * Sets the request handler.
+         *
+         * @param value
+         *     the request handler.
+         * @return
+         *     this builder.
+         * @throws NullPointerException
+         *     if the value is {@code null}.
+         */
+        public Builder setHandler(final Handler value) {
+            handler = Objects.requireNonNull(
+                value,
+                "Handler must not be null"
+            );
             return this;
         }
 
