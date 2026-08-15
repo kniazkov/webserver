@@ -214,7 +214,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals(
             ContentType.APPLICATION_OCTET_STREAM,
@@ -237,7 +237,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals(
             ContentType.APPLICATION_OCTET_STREAM,
@@ -281,7 +281,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("data.bin", file.getName());
         assertArrayEquals(bytes("data"), file.getData());
@@ -302,7 +302,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("data.bin", file.getName());
         assertArrayEquals(bytes("data"), file.getData());

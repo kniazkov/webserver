@@ -281,7 +281,8 @@ final class UrlEncodedParserTest {
     private static Request query(final String target)
         throws ServerException {
         final RequestBuilder builder = new RequestBuilder()
-            .setHeaders(headers(target));
+            .setHeaders(headers(target))
+            .setPath(RootRequestPath.getInstance());
 
         UrlEncodedParser.parseQuery(target, builder);
 
@@ -301,7 +302,8 @@ final class UrlEncodedParserTest {
     private static Request form(final String value)
         throws ServerException {
         final RequestBuilder builder = new RequestBuilder()
-            .setHeaders(headers("/"));
+            .setHeaders(headers("/"))
+            .setPath(RootRequestPath.getInstance());
 
         UrlEncodedParser.parseForm(
             value.getBytes(StandardCharsets.US_ASCII),

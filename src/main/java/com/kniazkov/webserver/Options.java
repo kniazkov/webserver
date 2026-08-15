@@ -7,6 +7,7 @@ package com.kniazkov.webserver;
 import com.kniazkov.webserver.impl.DefaultErrorPage;
 import com.kniazkov.webserver.impl.DefaultHandler;
 
+import java.time.Duration;
 import java.util.Objects;
 
 /**
@@ -45,6 +46,23 @@ public final class Options {
         64L * 1024L;
 
     /**
+     * The default maximum number of concurrently processed connections.
+     */
+    private static final int DEFAULT_MAX_WORKERS = 100;
+
+    /**
+     * The default socket read timeout.
+     */
+    private static final Duration DEFAULT_READ_TIMEOUT =
+        Duration.ofSeconds(30);
+
+    /**
+     * The default request handler timeout.
+     */
+    private static final Duration DEFAULT_HANDLER_TIMEOUT =
+        Duration.ofSeconds(30);
+
+    /**
      * The server port.
      */
     private final int port;
@@ -68,6 +86,21 @@ public final class Options {
      * The maximum HTTP header section size, in bytes.
      */
     private final long maxHeaderSize;
+
+    /**
+     * The maximum number of concurrently processed connections.
+     */
+    private final int maxWorkers;
+
+    /**
+     * The socket read timeout.
+     */
+    private final Duration readTimeout;
+
+    /**
+     * The maximum request handler execution time.
+     */
+    private final Duration handlerTimeout;
 
     /**
      * The error page generator.
@@ -97,6 +130,9 @@ public final class Options {
                 maxFileSize
             )
         );
+        maxWorkers = builder.maxWorkers;
+        readTimeout = builder.readTimeout;
+        handlerTimeout = builder.handlerTimeout;
         errorPage = builder.errorPage;
         handler = builder.handler;
     }
@@ -154,6 +190,36 @@ public final class Options {
     }
 
     /**
+     * Returns the maximum number of concurrently processed connections.
+     *
+     * @return
+     *     the maximum number of connections.
+     */
+    public int getMaxWorkers() {
+        return maxWorkers;
+    }
+
+    /**
+     * Returns the socket read timeout.
+     *
+     * @return
+     *     the socket read timeout.
+     */
+    public Duration getReadTimeout() {
+        return readTimeout;
+    }
+
+    /**
+     * Returns the maximum request handler execution time.
+     *
+     * @return
+     *     the handler timeout.
+     */
+    public Duration getHandlerTimeout() {
+        return handlerTimeout;
+    }
+
+    /**
      * Returns the error page generator.
      *
      * @return
@@ -202,6 +268,21 @@ public final class Options {
          * The maximum HTTP header section size, in bytes.
          */
         private long maxHeaderSize = DEFAULT_MAX_HEADER_SIZE;
+
+        /**
+         * The maximum number of concurrently processed connections.
+         */
+        private int maxWorkers = DEFAULT_MAX_WORKERS;
+
+        /**
+         * The socket read timeout.
+         */
+        private Duration readTimeout = DEFAULT_READ_TIMEOUT;
+
+        /**
+         * The maximum request handler execution time.
+         */
+        private Duration handlerTimeout = DEFAULT_HANDLER_TIMEOUT;
 
         /**
          * The error page generator.
@@ -323,6 +404,63 @@ public final class Options {
         }
 
         /**
+         * Sets the maximum number of concurrently processed connections.
+         *
+         * @param value
+         *     the maximum number of connections.
+         * @return
+         *     this builder.
+         * @throws IllegalArgumentException
+         *     if the value is not positive.
+         */
+        public Builder setMaxWorkers(final int value) {
+            if (value < 1) {
+                throw new IllegalArgumentException(
+                    "Maximum worker count must be positive"
+                );
+            }
+
+            maxWorkers = value;
+            return this;
+        }
+
+        /**
+         * Sets the socket read timeout.
+         *
+         * @param value
+         *     the socket read timeout.
+         * @return
+         *     this builder.
+         * @throws NullPointerException
+         *     if the value is {@code null}.
+         * @throws IllegalArgumentException
+         *     if the value is zero or negative.
+         */
+        public Builder setReadTimeout(final Duration value) {
+            validateTimeout(value, "Read timeout");
+            readTimeout = value;
+            return this;
+        }
+
+        /**
+         * Sets the maximum request handler execution time.
+         *
+         * @param value
+         *     the handler timeout.
+         * @return
+         *     this builder.
+         * @throws NullPointerException
+         *     if the value is {@code null}.
+         * @throws IllegalArgumentException
+         *     if the value is zero or negative.
+         */
+        public Builder setHandlerTimeout(final Duration value) {
+            validateTimeout(value, "Handler timeout");
+            handlerTimeout = value;
+            return this;
+        }
+
+        /**
          * Sets the error page generator.
          *
          * @param value
@@ -366,6 +504,27 @@ public final class Options {
          */
         public Options build() {
             return new Options(this);
+        }
+
+        /**
+         * Validates a timeout.
+         *
+         * @param value
+         *     the timeout.
+         * @param name
+         *     the timeout name used in an error message.
+         */
+        private static void validateTimeout(
+            final Duration value,
+            final String name
+        ) {
+            Objects.requireNonNull(value, name);
+
+            if (value.isZero() || value.isNegative()) {
+                throw new IllegalArgumentException(
+                    name + " must be positive"
+                );
+            }
         }
     }
 }

@@ -74,6 +74,7 @@ abstract class MultipartParserBaseTest {
         throws ServerException {
         final RequestBuilder builder = new RequestBuilder()
             .setHeaders(headers())
+            .setPath(RootRequestPath.getInstance())
             .setBody(body.getBytes(StandardCharsets.UTF_8));
 
         MultipartParser.parse(
@@ -102,6 +103,7 @@ abstract class MultipartParserBaseTest {
         throws ServerException {
         final RequestBuilder builder = new RequestBuilder()
             .setHeaders(headers())
+            .setPath(RootRequestPath.getInstance())
             .setBody(body);
 
         MultipartParser.parse(

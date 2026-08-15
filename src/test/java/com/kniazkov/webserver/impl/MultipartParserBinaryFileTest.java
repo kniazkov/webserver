@@ -45,7 +45,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("data.bin", file.getName());
         assertArrayEquals(fileData, file.getData());
@@ -74,7 +74,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             fileData,
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 
@@ -100,7 +100,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             fileData,
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 
@@ -126,7 +126,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             fileData,
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 
@@ -156,7 +156,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             fileData,
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 
@@ -182,7 +182,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             fileData,
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 
@@ -208,7 +208,7 @@ final class MultipartParserBinaryFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             fileData,
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 

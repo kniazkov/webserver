@@ -48,7 +48,8 @@ final class CookieParserTest {
     @Test
     void noCookies() throws ServerException {
         final RequestBuilder builder = new RequestBuilder()
-            .setHeaders(headers());
+            .setHeaders(headers())
+            .setPath(RootRequestPath.getInstance());
 
         CookieParser.parse(headers(), builder);
 
@@ -122,7 +123,8 @@ final class CookieParserTest {
             .build();
 
         final RequestBuilder builder = new RequestBuilder()
-            .setHeaders(headers);
+            .setHeaders(headers)
+            .setPath(RootRequestPath.getInstance());
 
         CookieParser.parse(headers, builder);
 
@@ -224,7 +226,8 @@ final class CookieParserTest {
             .build();
 
         final RequestBuilder builder = new RequestBuilder()
-            .setHeaders(headers);
+            .setHeaders(headers)
+            .setPath(RootRequestPath.getInstance());
 
         CookieParser.parse(headers, builder);
 

@@ -13,7 +13,6 @@ import com.kniazkov.webserver.RequestHeaders;
 import com.kniazkov.webserver.RequestPath;
 import com.kniazkov.webserver.ServerException;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -44,10 +43,8 @@ final class RequestParser {
     /**
      * Creates a request parser.
      *
-     * @param source
-     *     the byte source.
-     * @param options
-     *     the server options.
+     * @param source  the byte source.
+     * @param options the server options.
      */
     private RequestParser(
         final ByteSource source,
@@ -64,14 +61,10 @@ final class RequestParser {
     /**
      * Parses an HTTP request.
      *
-     * @param source
-     *     the byte source.
-     * @param options
-     *     the server options.
-     * @return
-     *     the parsed request.
-     * @throws ServerException
-     *     if the request is invalid or cannot be read.
+     * @param source  the byte source.
+     * @param options the server options.
+     * @return the parsed request.
+     * @throws ServerException if the request is invalid or cannot be read.
      */
     static Request parse(
         final ByteSource source,
@@ -83,10 +76,8 @@ final class RequestParser {
     /**
      * Parses the complete request.
      *
-     * @return
-     *     the parsed request.
-     * @throws ServerException
-     *     if the request is invalid.
+     * @return the parsed request.
+     * @throws ServerException if the request is invalid.
      */
     private Request parse() throws ServerException {
         parseHeaders();
@@ -101,8 +92,7 @@ final class RequestParser {
     /**
      * Parses the request headers.
      *
-     * @throws ServerException
-     *     if the headers are invalid.
+     * @throws ServerException if the headers are invalid.
      */
     private void parseHeaders() throws ServerException {
         final StringSource stringSource = new StringSource(
@@ -117,8 +107,7 @@ final class RequestParser {
     /**
      * Validates HTTP-version-specific requirements.
      *
-     * @throws ServerException
-     *     if the request does not conform to its HTTP version.
+     * @throws ServerException if the request does not conform to its HTTP version.
      */
     private void validateVersion() throws ServerException {
         if (
@@ -140,8 +129,7 @@ final class RequestParser {
     /**
      * Parses the request target into path and query parameters.
      *
-     * @throws ServerException
-     *     if the request target is invalid.
+     * @throws ServerException if the request target is invalid.
      */
     private void parseTarget() throws ServerException {
         final String target = headers.getTarget();
@@ -165,8 +153,7 @@ final class RequestParser {
     /**
      * Parses request cookies.
      *
-     * @throws ServerException
-     *     if the cookie header is invalid.
+     * @throws ServerException if the cookie header is invalid.
      */
     private void parseCookies() throws ServerException {
         CookieParser.parse(headers, builder);
@@ -175,8 +162,7 @@ final class RequestParser {
     /**
      * Reads and parses the request body.
      *
-     * @throws ServerException
-     *     if the body is invalid or incomplete.
+     * @throws ServerException if the body is invalid or incomplete.
      */
     private void parseBody() throws ServerException {
         final long contentLength = getContentLength();
@@ -239,10 +225,8 @@ final class RequestParser {
     /**
      * Returns the request content type.
      *
-     * @return
-     *     the content type.
-     * @throws ServerException
-     *     if several Content-Type headers are present.
+     * @return the content type.
+     * @throws ServerException if several Content-Type headers are present.
      */
     private ContentType getContentType() throws ServerException {
         final List<String> values =
@@ -264,10 +248,8 @@ final class RequestParser {
     /**
      * Returns the declared request body length.
      *
-     * @return
-     *     the body length.
-     * @throws ServerException
-     *     if Content-Length is invalid.
+     * @return the body length.
+     * @throws ServerException if Content-Length is invalid.
      */
     private long getContentLength() throws ServerException {
         final List<String> values =
@@ -306,10 +288,8 @@ final class RequestParser {
     /**
      * Extracts the multipart boundary.
      *
-     * @return
-     *     the boundary.
-     * @throws ServerException
-     *     if the boundary parameter is missing or invalid.
+     * @return the boundary.
+     * @throws ServerException if the boundary parameter is missing or invalid.
      */
     private String getBoundary() throws ServerException {
         final String value = headers
@@ -365,10 +345,8 @@ final class RequestParser {
     /**
      * Checks that exactly one non-empty header with the specified name exists.
      *
-     * @param name
-     *     the header name.
-     * @return
-     *     {@code true} if such a header exists.
+     * @param name the header name.
+     * @return {@code true} if such a header exists.
      */
     private boolean hasSingleNonEmptyHeader(final String name) {
         final List<String> values =
@@ -377,147 +355,5 @@ final class RequestParser {
         return values != null
             && values.size() == 1
             && !values.getFirst().isBlank();
-    }
-
-    /**
-     * Counts all bytes read while parsing one HTTP request.
-     */
-    private static final class RequestByteSource
-        implements ByteSource {
-
-        /**
-         * The underlying source.
-         */
-        private final ByteSource source;
-
-        /**
-         * The maximum request size.
-         */
-        private final long limit;
-
-        /**
-         * The number of bytes read.
-         */
-        private long count;
-
-        /**
-         * Creates a limited request source.
-         *
-         * @param source
-         *     the underlying source.
-         * @param limit
-         *     the maximum request size.
-         */
-        private RequestByteSource(
-            final ByteSource source,
-            final long limit
-        ) {
-            this.source = source;
-            this.limit = limit;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public int read() throws ServerException {
-            final int value = source.read();
-
-            if (value != -1) {
-                count++;
-
-                if (count > limit) {
-                    throw new ServerException(
-                        "Maximum HTTP request size exceeded"
-                    );
-                }
-            }
-
-            return value;
-        }
-    }
-
-    /**
-     * Restricts reading to one HTTP request body and stores all bytes read.
-     */
-    private static final class BodyByteSource
-        implements ByteSource {
-
-        /**
-         * The underlying source.
-         */
-        private final ByteSource source;
-
-        /**
-         * The body data.
-         */
-        private final ByteAccumulator accumulator =
-            new ByteAccumulator();
-
-        /**
-         * The number of bytes remaining.
-         */
-        private long remaining;
-
-        /**
-         * Creates a request body source.
-         *
-         * @param source
-         *     the underlying source.
-         * @param length
-         *     the body length.
-         */
-        private BodyByteSource(
-            final ByteSource source,
-            final long length
-        ) {
-            this.source = source;
-            remaining = length;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public int read() throws ServerException {
-            if (remaining == 0) {
-                return -1;
-            }
-
-            final int value = source.read();
-
-            if (value == -1) {
-                throw new ServerException(
-                    "Unexpected end of HTTP request body"
-                );
-            }
-
-            accumulator.append(value);
-            remaining--;
-
-            return value;
-        }
-
-        /**
-         * Reads the remaining body bytes.
-         *
-         * @throws ServerException
-         *     if the body ends unexpectedly.
-         */
-        private void drain() throws ServerException {
-            while (read() != -1) {
-                // Intentionally empty.
-            }
-        }
-
-        /**
-         * Returns all request body bytes.
-         *
-         * @return
-         *     the request body.
-         */
-        private byte[] getData() {
-            return accumulator.toByteArray();
-        }
     }
 }

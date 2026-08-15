@@ -44,7 +44,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
         assertTrue(request.getForm().isEmpty());
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("hello.txt", file.getName());
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
@@ -70,7 +70,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         final Request request = parse(body);
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("empty.txt", file.getName());
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
@@ -92,7 +92,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         final Request request = parse(body);
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("data.bin", file.getName());
         assertEquals(
@@ -128,10 +128,10 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         assertEquals(2, files.size());
 
-        assertEquals("first.txt", files.get(0).getName());
+        assertEquals("first.txt", files.getFirst().getName());
         assertArrayEquals(
             bytes("first"),
-            files.get(0).getData()
+            files.getFirst().getData()
         );
 
         assertEquals("second.txt", files.get(1).getName());
@@ -174,14 +174,14 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile avatar =
-            request.getFiles().get("avatar").get(0);
+            request.getFiles().get("avatar").getFirst();
 
         assertEquals("avatar.png", avatar.getName());
         assertEquals(ContentType.IMAGE_PNG, avatar.getContentType());
         assertArrayEquals(bytes("png-data"), avatar.getData());
 
         final UploadedFile document =
-            request.getFiles().get("document").get(0);
+            request.getFiles().get("document").getFirst();
 
         assertEquals("document.pdf", document.getName());
         assertEquals(
@@ -219,7 +219,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
         );
 
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals("document.txt", file.getName());
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
@@ -242,7 +242,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         final Request request = parse(body);
         final UploadedFile file =
-            request.getFiles().get("file").get(0);
+            request.getFiles().get("file").getFirst();
 
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
     }
@@ -268,7 +268,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             bytes("12345"),
-            request.getFiles().get("file").get(0).getData()
+            request.getFiles().get("file").getFirst().getData()
         );
     }
 
