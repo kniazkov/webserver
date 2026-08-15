@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Tests integration between components used by {@link RequestParser}.
@@ -404,6 +405,38 @@ final class RequestParserTest {
                 options
             )
         );
+    }
+
+    /**
+     * Tests that an exhausted source before a new request is reported as a
+     * normally closed connection.
+     */
+    @Test
+    void connectionClosedBeforeRequest() {
+        assertThrows(
+            ConnectionClosedException.class,
+            () -> RequestParser.parse(
+                new StringByteSource(""),
+                OPTIONS
+            )
+        );
+    }
+
+    /**
+     * Tests that a connection closed in the middle of a request is reported as
+     * an invalid request rather than a normally closed connection.
+     */
+    @Test
+    void connectionClosedDuringRequest() {
+        final ServerException exception = assertThrows(
+            ServerException.class,
+            () -> RequestParser.parse(
+                new StringByteSource("GET / HTTP/1.1\r\nHost: local"),
+                OPTIONS
+            )
+        );
+
+        assertFalse(exception instanceof ConnectionClosedException);
     }
 
     /**
