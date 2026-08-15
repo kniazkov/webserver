@@ -62,14 +62,20 @@ final class RequestByteSource implements ByteSource {
     public int read() throws ServerException {
         final int value = source.read();
 
-        if (value != -1) {
-            count++;
-
-            if (count > limit) {
-                throw new ServerException(
-                    "Maximum HTTP request size exceeded"
-                );
+        if (value == -1) {
+            if (count == 0) {
+                throw new ConnectionClosedException();
             }
+
+            return -1;
+        }
+
+        count++;
+
+        if (count > limit) {
+            throw new ServerException(
+                "Maximum HTTP request size exceeded"
+            );
         }
 
         return value;
