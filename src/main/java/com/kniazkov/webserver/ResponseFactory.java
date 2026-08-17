@@ -4,6 +4,8 @@
 
 package com.kniazkov.webserver;
 
+import java.io.File;
+
 /**
  * Creates HTTP responses and response builders.
  * <p>
@@ -18,6 +20,14 @@ public interface ResponseFactory {
      *     the response.
      */
     Response noResponse();
+
+    /**
+     * Returns a {@code 403 Forbidden} response.
+     *
+     * @return
+     *     the response.
+     */
+    Response forbidden();
 
     /**
      * Returns a {@code 404 Not Found} response.
@@ -75,4 +85,14 @@ public interface ResponseFactory {
      *     the response builder.
      */
     ResponseBuilder fromJson(String value);
+
+    /**
+     * Creates a response containing the specified file.
+     *
+     * @param file
+     *     the file.
+     * @return
+     *     the resulting response.
+     */
+    Response fromFile(File file);
 }

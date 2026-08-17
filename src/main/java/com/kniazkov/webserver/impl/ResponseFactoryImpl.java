@@ -12,7 +12,10 @@ import com.kniazkov.webserver.ResponseBuilder;
 import com.kniazkov.webserver.ResponseFactory;
 import com.kniazkov.webserver.ServerException;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Objects;
 
 /**
@@ -24,6 +27,11 @@ final class ResponseFactoryImpl implements ResponseFactory {
      * The error page generator.
      */
     private final ErrorPage errorPage;
+
+    /**
+     * The cached 403 Forbidden response.
+     */
+    private final Response forbidden;
 
     /**
      * The cached 404 Not Found response.
@@ -48,6 +56,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
             errorPage,
             "Error page must not be null"
         );
+        this.forbidden = new Forbidden(errorPage);
         this.notFound = new NotFound(errorPage);
     }
 
@@ -57,6 +66,14 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public Response noResponse() {
         return NoResponse.getInstance();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Response forbidden() {
+        return forbidden;
     }
 
     /**
@@ -122,6 +139,52 @@ final class ResponseFactoryImpl implements ResponseFactory {
         );
     }
 
+    @Override
+    public Response fromFile(final File file) {
+        Objects.requireNonNull(file, "File must not be null");
+
+        if (!file.exists()) {
+            return notFound;
+        }
+
+        if (!file.isFile() || !file.canRead()) {
+            return forbidden;
+        }
+
+        try {
+            final String name = file.getName();
+            final int dot = name.lastIndexOf('.');
+
+            final String extension = dot < 0
+                ? ""
+                : name.substring(dot + 1);
+
+            final ContentType contentType =
+                ContentType.fromExtension(extension);
+
+            final ResponseBuilder builder = new ResponseBuilderImpl(
+                HttpStatus.OK,
+                contentType,
+                Files.readAllBytes(file.toPath())
+            );
+
+            builder.setHeader(
+                "Content-Disposition",
+                "inline; filename=\"" + escapeFileName(name) + "\""
+            );
+
+            return builder.build();
+        } catch (IOException | ServerException exception) {
+            return new InternalServerError(
+                errorPage,
+                new ServerException(
+                    "Cannot read file: " + file,
+                    exception
+                )
+            );
+        }
+    }
+
     /**
      * Creates a successful response builder containing UTF-8 text.
      *
@@ -146,5 +209,19 @@ final class ResponseFactoryImpl implements ResponseFactory {
             contentType,
             value.getBytes(StandardCharsets.UTF_8)
         );
+    }
+
+    /**
+     * Escapes a file name for use in a quoted HTTP header parameter.
+     *
+     * @param value
+     *     the file name.
+     * @return
+     *     the escaped file name.
+     */
+    private static String escapeFileName(final String value) {
+        return value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"");
     }
 }
