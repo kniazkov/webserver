@@ -64,7 +64,7 @@ abstract class WorkerBaseTest {
             final Socket accepted = server.accept();
 
             final Environment environment =
-                new TestEnvironment(options);
+                new EnvironmentImpl(options);
 
             final Thread worker = Thread.startVirtualThread(
                 new Worker(
@@ -332,38 +332,6 @@ abstract class WorkerBaseTest {
             return headers.get(
                 name.toLowerCase(Locale.ENGLISH)
             );
-        }
-    }
-
-    /**
-     * Test implementation of the handler environment.
-     */
-    private static final class TestEnvironment
-        implements Environment {
-
-        /**
-         * The response factory.
-         */
-        private final ResponseFactory responseFactory;
-
-        /**
-         * Creates the environment.
-         *
-         * @param options
-         *     the server options.
-         */
-        private TestEnvironment(final Options options) {
-            responseFactory = new ResponseFactoryImpl(
-                options.getErrorPage()
-            );
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public ResponseFactory getResponseFactory() {
-            return responseFactory;
         }
     }
 }

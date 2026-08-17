@@ -9,6 +9,7 @@ import com.kniazkov.webserver.impl.DefaultHandler;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Contains configuration options for the web server.
@@ -113,6 +114,11 @@ public final class Options {
     private final Handler handler;
 
     /**
+     * The SSL/TLS configuration, or {@code null} if SSL is disabled.
+     */
+    private final SslOptions sslOptions;
+
+    /**
      * Creates server options.
      *
      * @param builder
@@ -135,6 +141,7 @@ public final class Options {
         handlerTimeout = builder.handlerTimeout;
         errorPage = builder.errorPage;
         handler = builder.handler;
+        sslOptions = builder.sslOptions;
     }
 
     /**
@@ -240,6 +247,16 @@ public final class Options {
     }
 
     /**
+     * Returns the SSL/TLS configuration.
+     *
+     * @return
+     *     the SSL/TLS configuration, or an empty optional if SSL is disabled.
+     */
+    public Optional<SslOptions> getSslOptions() {
+        return Optional.ofNullable(sslOptions);
+    }
+
+    /**
      * Builds web server options.
      */
     public static final class Builder {
@@ -293,6 +310,11 @@ public final class Options {
          * The request handler.
          */
         private Handler handler = DefaultHandler.getInstance();
+
+        /**
+         * The SSL/TLS configuration.
+         */
+        private SslOptions sslOptions;
 
         /**
          * Sets the server port.
@@ -492,6 +514,22 @@ public final class Options {
             handler = Objects.requireNonNull(
                 value,
                 "Handler must not be null"
+            );
+            return this;
+        }
+
+        /**
+         * Enables SSL/TLS using the specified configuration.
+         *
+         * @param value
+         *     the SSL/TLS configuration.
+         * @return
+         *     this builder.
+         */
+        public Builder setSslOptions(final SslOptions value) {
+            sslOptions = Objects.requireNonNull(
+                value,
+                "SSL options must not be null"
             );
             return this;
         }
