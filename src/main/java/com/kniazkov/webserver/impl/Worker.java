@@ -98,6 +98,8 @@ final class Worker implements Runnable {
                     request = RequestParser.parse(source, options);
                 } catch (ConnectionClosedException exception) {
                     return;
+                } catch (ConnectionTimeoutException exception) {
+                    return;
                 } catch (ServerException exception) {
                     writeError(output, exception, HttpVersion.HTTP_1_1);
                     return;

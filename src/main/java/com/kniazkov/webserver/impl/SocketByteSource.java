@@ -9,6 +9,7 @@ import com.kniazkov.webserver.ServerException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.Objects;
 
 /**
@@ -113,6 +114,8 @@ final class SocketByteSource implements ByteSource {
             do {
                 limit = input.read(buffer);
             } while (limit == 0);
+        } catch (SocketTimeoutException exception) {
+            throw new ConnectionTimeoutException(exception);
         } catch (IOException exception) {
             throw new ServerException(
                 "Cannot read from socket",
