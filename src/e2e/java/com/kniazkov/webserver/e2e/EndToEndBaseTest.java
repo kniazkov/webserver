@@ -14,6 +14,7 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 
+import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterAll;
@@ -195,6 +196,7 @@ abstract class EndToEndBaseTest {
      *     the server options builder.
      */
     protected void configure(final Options.Builder builder) {
+        builder.setReadTimeout(Duration.ofSeconds(1));
         // Nothing by default.
     }
 
