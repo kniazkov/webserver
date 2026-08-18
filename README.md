@@ -1096,6 +1096,22 @@ The project also uses end-to-end tests to verify the server as a complete system
 
 Tests are run automatically by the project's continuous integration workflow, so changes are checked against the complete test suite before being accepted.
 
+### End-to-End Tests
+
+End-to-end tests use Playwright and a real Chromium browser. Before running them for the first time, install the Chromium version required by Playwright:
+
+```bash
+mvn exec:java -e "-Dexec.mainClass=com.microsoft.playwright.CLI" "-Dexec.args=install chromium" "-Dexec.classpathScope=test"
+```
+
+The browser installation only needs to be repeated when required by a Playwright upgrade.
+
+To run the complete test suite, including end-to-end tests:
+
+```bash
+mvn verify -Pe2e
+```
+
 ## Project Status and License
 
 Foundry19 Web Server 2.x is the second generation of the library and represents a substantial redesign of its API and internal architecture.
