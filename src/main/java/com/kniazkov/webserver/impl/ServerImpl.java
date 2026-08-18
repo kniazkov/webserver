@@ -146,6 +146,14 @@ public final class ServerImpl implements Server {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getPort() {
+        return serverSocket.getLocalPort();
+    }
+
+    /**
      * Creates the listening server socket.
      *
      * @param options

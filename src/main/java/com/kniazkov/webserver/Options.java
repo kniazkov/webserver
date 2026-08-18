@@ -320,14 +320,17 @@ public final class Options {
          * Sets the server port.
          *
          * @param value
-         *     the server port.
+         *     the server port;
+         *     a value of {@code 0} lets the server automatically select an available
+         *     port, then the actual assigned port can then be obtained using
+         *     {@link Server#getPort()}.
          * @return
          *     this builder.
          * @throws IllegalArgumentException
-         *     if the port is outside the range {@code 1..65535}.
+         *     if the port is outside the range {@code 0..65535}.
          */
         public Builder setPort(final int value) {
-            if (value < 1 || value > 65535) {
+            if (value < 0 || value > 65535) {
                 throw new IllegalArgumentException(
                     "Port must be between 1 and 65535"
                 );

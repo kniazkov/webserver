@@ -35,4 +35,12 @@ public interface Server {
      *     if the server cannot be stopped normally.
      */
     void stop() throws ServerException;
+
+    /**
+     * Returns the actual TCP port on which the server is listening.
+     *
+     * @return
+     *     the actual port number.
+     */
+    int getPort();
 }
