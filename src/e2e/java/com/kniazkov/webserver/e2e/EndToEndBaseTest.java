@@ -92,7 +92,10 @@ abstract class EndToEndBaseTest {
      */
     @BeforeEach
     void createTestEnvironment() throws IOException {
-        context = browser.newContext();
+        context = browser.newContext(
+            new Browser.NewContextOptions()
+                .setIgnoreHTTPSErrors(true)
+        );
         page = context.newPage();
         wwwRoot = Files.createTempDirectory("webserver-e2e-");
     }
@@ -197,7 +200,6 @@ abstract class EndToEndBaseTest {
      */
     protected void configure(final Options.Builder builder) {
         builder.setReadTimeout(Duration.ofSeconds(1));
-        // Nothing by default.
     }
 
     /**
@@ -323,6 +325,30 @@ abstract class EndToEndBaseTest {
             for (Path item : items) {
                 Files.deleteIfExists(item);
             }
+        }
+    }
+
+    /**
+     * Returns the actual port of the running test server.
+     *
+     * @return
+     *     the server port.
+     */
+    protected final int getPort() {
+        ensureServerStarted();
+        return port;
+    }
+
+    /**
+     * Stops the current test server.
+     *
+     * @throws ServerException
+     *     if the server cannot be stopped.
+     */
+    protected final void stopServer() throws ServerException {
+        if (server != null) {
+            server.stop();
+            server = null;
         }
     }
 }
