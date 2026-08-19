@@ -13,6 +13,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -26,11 +27,11 @@ jobs:
           cache: maven
 
       - name: Install Chromium for Playwright
-        run: >
-          mvn exec:java -e
-          "-Dexec.mainClass=com.microsoft.playwright.CLI"
-          "-Dexec.args=install --with-deps chromium"
-          "-Dexec.classpathScope=test"
+        run: |
+          mvn exec:java -e \
+            "-Dexec.mainClass=com.microsoft.playwright.CLI" \
+            "-Dexec.args=install chromium" \
+            "-Dexec.classpathScope=test"
 
       - name: Build and run all tests
         run: mvn -B verify -Pe2e
