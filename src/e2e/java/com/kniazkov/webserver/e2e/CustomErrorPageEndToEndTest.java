@@ -42,6 +42,7 @@ final class CustomErrorPageEndToEndTest
                     message
                 )
         );
+        super.configure(builder);
     }
 
     /**

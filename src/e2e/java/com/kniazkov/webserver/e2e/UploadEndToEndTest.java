@@ -144,6 +144,12 @@ final class UploadEndToEndTest extends EndToEndBaseTest {
             Files.writeString(second, "second");
 
             final Handler handler = (request, environment) -> {
+                if (!request.getPath().getPath().equals("/upload")) {
+                    return environment
+                        .getResponseFactory()
+                        .noResponse();
+                }
+
                 final List<UploadedFile> files =
                     request.getFiles().get("files");
 
@@ -228,6 +234,12 @@ final class UploadEndToEndTest extends EndToEndBaseTest {
             );
 
             final Handler handler = (request, environment) -> {
+                if (!request.getPath().getPath().equals("/upload")) {
+                    return environment
+                        .getResponseFactory()
+                        .noResponse();
+                }
+
                 assertEquals(
                     "Example",
                     request.getForm()

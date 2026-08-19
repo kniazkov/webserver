@@ -48,6 +48,7 @@ final class HttpsEndToEndTest extends EndToEndBaseTest {
                 exception
             );
         }
+        super.configure(builder);
     }
 
     /**

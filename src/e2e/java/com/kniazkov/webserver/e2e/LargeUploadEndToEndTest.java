@@ -32,8 +32,8 @@ final class LargeUploadEndToEndTest extends EndToEndBaseTest {
     protected void configure(final Options.Builder builder) {
         builder
             .setMaxFileSize(1024)
-            .setMaxRequestSize(16 * 1024)
-            .setReadTimeout(Duration.ofSeconds(1));
+            .setMaxRequestSize(16 * 1024);
+        super.configure(builder);
     }
 
     /**
@@ -74,11 +74,18 @@ final class LargeUploadEndToEndTest extends EndToEndBaseTest {
             );
 
             startServer(
-                (request, environment) ->
-                    environment
+                (request, environment) -> {
+                    if (!request.getPath().getPath().equals("/upload")) {
+                        return environment
+                            .getResponseFactory()
+                            .noResponse();
+                    }
+
+                    return environment
                         .getResponseFactory()
                         .fromText("This must not be reached")
-                        .build()
+                        .build();
+                }
             );
 
             page.navigate(url("/upload.html"));
