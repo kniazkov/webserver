@@ -1,31 +1,54 @@
 /*
- * Copyright (c) 2025 Ivan Kniazkov
+ * Copyright (c) 2026 Ivan Kniazkov
  */
+
 package com.kniazkov.webserver;
 
+import java.util.List;
 import java.util.Map;
 
 /**
- * Response returned by a handler to be sent to client.
+ * Represents an HTTP response returned by a request handler.
+ * <p>
+ * Implementations of this interface are immutable. Collections returned by
+ * this interface are also immutable.
  */
 public interface Response {
-	/**
-	 * Returns the content type, for example, {@code image/jpeg} or {@code text/html}.
-	 * @return Content type
-	 */
-	String getContentType();
-
-	/**
-	 * Returns the response data as an array of bytes.
-	 * @return Response data or {@code null} if the response has no data
-	 */
-	byte[] getData();
 
     /**
-     * Returns the cookies to be set in the response.
-     * @return Map of cookies or an empty map or {@code null} if none
+     * Returns the HTTP status.
+     *
+     * @return
+     *     the HTTP status.
      */
-    default Map<String, String> getCookies() {
-        return null;
-    }
+    HttpStatus getStatus();
+
+    /**
+     * Returns the content type.
+     *
+     * @return
+     *     the content type.
+     */
+    ContentType getContentType();
+
+    /**
+     * Returns the response headers.
+     * <p>
+     * Both the returned map and the lists contained in it are immutable.
+     *
+     * @return
+     *     the response headers.
+     */
+    Map<String, List<String>> getHeaders();
+
+    /**
+     * Returns the response body.
+     * <p>
+     * A new copy of the response data is created on every invocation.
+     * Modifying the returned array does not affect this response.
+     *
+     * @return
+     *     a copy of the response body.
+     */
+    byte[] getData();
 }

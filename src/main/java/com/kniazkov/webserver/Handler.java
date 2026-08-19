@@ -1,29 +1,30 @@
 /*
- * Copyright (c) 2025 Ivan Kniazkov
+ * Copyright (c) 2026 Ivan Kniazkov
  */
+
 package com.kniazkov.webserver;
 
 /**
- * Web server payload interface to be implemented by the library user.
+ * Handles HTTP requests.
+ * <p>
+ * Applications implement this interface to provide request processing logic.
  */
 public interface Handler {
-	/**
-	 * Handles requests received from clients (i.e., web pages).
-	 *
-	 * The behavior of the server depends on the request data and the response
-	 * received as a result of this method.
-	 * If the result is not {@code null}, it will be sent to the client as is with HTTP status
-	 * code 200 (Ok).
-	 * If the result is {@code null} and the request address contains a filename,
-	 * then the web server will attempt to read that file and return its content to the client
-	 * (with code 200). If the file is not found, the server will return code 404.
-	 * Thus, if a handler is implemented that always returns {@code null}, the web server will
-	 * simply transfer files from a specific folder.
-	 * If the result is {@code null} and the request address does not contain a filename,
-	 * but only form data, then the server will return a code 500 (internal server error).
-	 *
-	 * @param request Request
-	 * @return Response or {@code null} if the request cannot be handled
-	 */
-	Response handle(Request request);
+
+    /**
+     * Handles an HTTP request.
+     *
+     * @param request
+     *     the request.
+     * @param environment
+     *     the request processing environment.
+     * @return
+     *     the response.
+     * @throws ServerException
+     *     if the request cannot be processed.
+     */
+    Response handle(
+        Request request,
+        Environment environment
+    ) throws ServerException;
 }
