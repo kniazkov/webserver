@@ -40,6 +40,12 @@ public final class RequestHeadersBuilder {
     private final Map<String, List<String>> values = new LinkedHashMap<>();
 
     /**
+     * Creates a builder with default values.
+     */
+    public RequestHeadersBuilder() {
+    }
+
+    /**
      * Sets the HTTP method.
      *
      * @param value

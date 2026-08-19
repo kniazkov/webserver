@@ -317,6 +317,12 @@ public final class Options {
         private SslOptions sslOptions;
 
         /**
+         * Creates a builder with default values.
+         */
+        public Builder() {
+        }
+
+        /**
          * Sets the server port.
          *
          * @param value

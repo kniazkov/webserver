@@ -145,6 +145,12 @@ public final class SslOptions {
         private SslProtocol protocol = DEFAULT_PROTOCOL;
 
         /**
+         * Creates a builder with default values.
+         */
+        public Builder() {
+        }
+
+        /**
          * Sets the key store file.
          *
          * @param value
