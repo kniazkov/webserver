@@ -26,7 +26,8 @@ import java.util.Objects;
  * Default implementation of {@link Server}.
  * <p>
  * This class creates the listening socket, initializes the server environment
- * and runs the connection accept loop in a separate virtual thread.
+ * and runs the connection accept loop in a separate platform thread.
+ * The platform thread keeps the JVM alive until {@link #stop()} is called.
  * <p>
  * Depending on the supplied {@link Options}, either a regular TCP server
  * socket or an SSL/TLS server socket is created. The rest of the server does
@@ -71,22 +72,26 @@ public final class ServerImpl implements Server {
         final Thread thread;
 
         try {
-            thread = Thread.startVirtualThread(
-                () -> {
-                    try {
-                        ServerLoop.run(
-                            serverSocket,
-                            options,
-                            environment
-                        );
-                    } catch (ServerException exception) {
-                        /*
-                         * The loop cannot report an asynchronous error to the
-                         * caller of start(). Logging will belong here.
-                         */
+            thread = Thread.ofPlatform()
+                .name(
+                    "webserver-" + serverSocket.getLocalPort()
+                )
+                .start(
+                    () -> {
+                        try {
+                            ServerLoop.run(
+                                serverSocket,
+                                options,
+                                environment
+                            );
+                        } catch (ServerException exception) {
+                            /*
+                             * The loop cannot report an asynchronous error to
+                             * the caller of start(). Logging will belong here.
+                             */
+                        }
                     }
-                }
-            );
+                );
         } catch (RuntimeException exception) {
             close(serverSocket);
 
@@ -123,23 +128,34 @@ public final class ServerImpl implements Server {
      * <p>
      * Closing the listening socket interrupts a blocking
      * {@link ServerSocket#accept()} call and causes the server loop to
-     * terminate. Existing workers own their accepted sockets and therefore
-     * finish independently.
+     * terminate. Interrupting the server thread also releases it when it is
+     * waiting for an available worker. This method does not return until the
+     * accept loop has terminated.
      *
      * @throws ServerException
      *     if the listening socket cannot be closed.
      */
     @Override
-    public void stop() throws ServerException {
-        if (serverSocket.isClosed()) {
-            return;
+    public synchronized void stop() throws ServerException {
+        if (!serverSocket.isClosed()) {
+            try {
+                serverSocket.close();
+            } catch (IOException exception) {
+                throw new ServerException(
+                    "Cannot stop server",
+                    exception
+                );
+            }
         }
 
+        thread.interrupt();
+
         try {
-            serverSocket.close();
-        } catch (IOException exception) {
+            thread.join();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
             throw new ServerException(
-                "Cannot stop server",
+                "Interrupted while stopping server",
                 exception
             );
         }

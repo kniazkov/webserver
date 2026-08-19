@@ -8,7 +8,8 @@ package com.kniazkov.webserver;
  * Represents a running web server.
  * <p>
  * A server is created and started using {@link #start(Options)}. The returned
- * instance can later be used to stop the server.
+ * instance can later be used to stop the server. A running server keeps the
+ * JVM alive until {@link #stop()} is called.
  */
 public interface Server {
 
@@ -29,7 +30,8 @@ public interface Server {
     /**
      * Stops the server.
      * <p>
-     * Calling this method on an already stopped server has no effect.
+     * This method waits for the server accept loop to terminate. Calling it on
+     * an already stopped server has no effect.
      *
      * @throws ServerException
      *     if the server cannot be stopped normally.
