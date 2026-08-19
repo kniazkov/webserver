@@ -6,6 +6,7 @@ package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.Environment;
 import com.kniazkov.webserver.Handler;
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.HttpVersion;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.Request;
@@ -195,6 +196,7 @@ final class Worker implements Runnable {
             thread.interrupt();
 
             throw new ServerException(
+                HttpStatus.SERVICE_UNAVAILABLE,
                 "Request handler execution timed out",
                 exception
             );
@@ -203,6 +205,7 @@ final class Worker implements Runnable {
             Thread.currentThread().interrupt();
 
             throw new ServerException(
+                HttpStatus.SERVICE_UNAVAILABLE,
                 "Request handler execution was interrupted",
                 exception
             );

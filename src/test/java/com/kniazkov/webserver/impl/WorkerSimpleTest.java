@@ -5,6 +5,7 @@
 package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.Handler;
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Options;
 
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,6 +22,52 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests successful processing of simple HTTP requests by {@link Worker}.
  */
 final class WorkerSimpleTest extends WorkerBaseTest {
+
+    /**
+     * Tests returning raw bytes with a custom status and media type.
+     */
+    @Test
+    void rawResponse() throws Exception {
+        final byte[] body = {
+            0, 1, (byte) 0xfe, (byte) 0xff
+        };
+
+        final Handler handler = (request, environment) ->
+            environment
+                .getResponseFactory()
+                .fromBytes(body, "application/vnd.example.packet")
+                .setStatus(HttpStatus.CREATED)
+                .build();
+
+        final Options options = new Options.Builder()
+            .setHandler(handler)
+            .build();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET /packet HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 201")
+            );
+            assertEquals(
+                "application/vnd.example.packet",
+                response.header("Content-Type")
+            );
+            assertArrayEquals(
+                body,
+                response.body()
+            );
+        }
+    }
 
     /**
      * Tests a simple GET request handled by a custom handler.

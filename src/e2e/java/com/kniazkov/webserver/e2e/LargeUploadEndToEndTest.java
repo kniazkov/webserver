@@ -101,7 +101,7 @@ final class LargeUploadEndToEndTest extends EndToEndBaseTest {
                 ).click()
             );
 
-            assertEquals(500, response.status());
+            assertEquals(413, response.status());
         } finally {
             Files.deleteIfExists(file);
         }

@@ -72,6 +72,23 @@ final class ResponseFactoryImpl implements ResponseFactory {
      * {@inheritDoc}
      */
     @Override
+    public ResponseBuilder response() {
+        return new ResponseBuilderImpl();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder response(final HttpStatus status) {
+        return new ResponseBuilderImpl()
+            .setStatus(status);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public Response forbidden() {
         return forbidden;
     }
@@ -89,7 +106,10 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public Response error() {
-        return new InternalServerError(errorPage);
+        return createError(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "An internal server error occurred."
+        );
     }
 
     /**
@@ -97,11 +117,50 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public Response error(final ServerException exception) {
-        return new InternalServerError(
-            errorPage,
+        final ServerException value = Objects.requireNonNull(
+            exception,
+            "Exception must not be null"
+        );
+
+        final HttpStatus status = value
+            .getStatus()
+            .orElse(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        final String message = value.getStatus().isPresent()
+            ? value.getMessage()
+            : "An internal server error occurred.";
+
+        return createError(status, message);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Response error(final HttpStatus status) {
+        final HttpStatus value = Objects.requireNonNull(
+            status,
+            "HTTP status must not be null"
+        );
+        return createError(value, value.getReason());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Response error(
+        final HttpStatus status,
+        final String message
+    ) {
+        return createError(
             Objects.requireNonNull(
-                exception,
-                "Exception must not be null"
+                status,
+                "HTTP status must not be null"
+            ),
+            Objects.requireNonNull(
+                message,
+                "Error message must not be null"
             )
         );
     }
@@ -110,11 +169,42 @@ final class ResponseFactoryImpl implements ResponseFactory {
      * {@inheritDoc}
      */
     @Override
+    public ResponseBuilder fromBytes(final byte[] data) {
+        return response().setData(data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder fromBytes(
+        final byte[] data,
+        final ContentType contentType
+    ) {
+        return response()
+            .setContentType(contentType)
+            .setData(data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder fromBytes(
+        final byte[] data,
+        final String contentType
+    ) throws ServerException {
+        return response()
+            .setContentType(contentType)
+            .setData(data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public ResponseBuilder fromText(final String value) {
-        return builder(
-            ContentType.TEXT_PLAIN,
-            value
-        );
+        return response().setText(value);
     }
 
     /**
@@ -122,10 +212,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromHtml(final String value) {
-        return builder(
-            ContentType.TEXT_HTML,
-            value
-        );
+        return response().setHtml(value);
     }
 
     /**
@@ -133,10 +220,43 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromJson(final String value) {
-        return builder(
-            ContentType.APPLICATION_JSON,
-            value
-        );
+        return response().setJson(value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder fromXml(final String value) {
+        return response()
+            .setContentType(ContentType.APPLICATION_XML)
+            .setData(
+                Objects.requireNonNull(
+                    value,
+                    "Response value must not be null"
+                ).getBytes(StandardCharsets.UTF_8)
+            );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder redirect(final String location)
+        throws ServerException {
+        return response(HttpStatus.FOUND)
+            .setHeader("Location", location);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder redirectPermanently(
+        final String location
+    ) throws ServerException {
+        return response(HttpStatus.MOVED_PERMANENTLY)
+            .setHeader("Location", location);
     }
 
     @Override
@@ -175,8 +295,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
 
             return builder.build();
         } catch (IOException | ServerException exception) {
-            return new InternalServerError(
-                errorPage,
+            return error(
                 new ServerException(
                     "Cannot read file: " + file,
                     exception
@@ -186,28 +305,34 @@ final class ResponseFactoryImpl implements ResponseFactory {
     }
 
     /**
-     * Creates a successful response builder containing UTF-8 text.
+     * Creates an HTML error response.
      *
-     * @param contentType
-     *     the response content type.
-     * @param value
-     *     the response text.
+     * @param status
+     *     the HTTP status.
+     * @param message
+     *     the error message.
      * @return
-     *     the response builder.
+     *     the error response.
      */
-    private static ResponseBuilder builder(
-        final ContentType contentType,
-        final String value
+    private Response createError(
+        final HttpStatus status,
+        final String message
     ) {
-        Objects.requireNonNull(
-            value,
-            "Response value must not be null"
-        );
+        if (!status.isError()) {
+            throw new IllegalArgumentException(
+                "Error response status must be an HTTP error"
+            );
+        }
 
-        return new ResponseBuilderImpl(
-            HttpStatus.OK,
-            contentType,
-            value.getBytes(StandardCharsets.UTF_8)
+        return new ResponseImpl(
+            status,
+            "text/html; charset=UTF-8",
+            java.util.Map.of(),
+            errorPage.create(
+                status.getCode(),
+                status.getReason(),
+                message == null ? status.getReason() : message
+            ).getBytes(StandardCharsets.UTF_8)
         );
     }
 

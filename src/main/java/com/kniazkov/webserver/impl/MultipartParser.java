@@ -5,6 +5,7 @@
 package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.ContentType;
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.ServerException;
 
@@ -275,6 +276,7 @@ final class MultipartParser {
                     > options.getMaxFileSize()
             ) {
                 throw new ServerException(
+                    HttpStatus.PAYLOAD_TOO_LARGE,
                     "Maximum uploaded file size exceeded"
                 );
             }
@@ -350,6 +352,7 @@ final class MultipartParser {
     ) throws ServerException {
         if (file && accumulator.size() > options.getMaxFileSize()) {
             throw new ServerException(
+                HttpStatus.PAYLOAD_TOO_LARGE,
                 "Maximum uploaded file size exceeded"
             );
         }

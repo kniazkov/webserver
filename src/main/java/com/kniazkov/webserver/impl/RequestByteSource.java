@@ -4,6 +4,7 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.ServerException;
 
 /**
@@ -74,6 +75,7 @@ final class RequestByteSource implements ByteSource {
 
         if (count > limit) {
             throw new ServerException(
+                HttpStatus.PAYLOAD_TOO_LARGE,
                 "Maximum HTTP request size exceeded"
             );
         }

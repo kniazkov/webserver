@@ -8,8 +8,13 @@ import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Response;
 import com.kniazkov.webserver.ResponseBuilder;
+import com.kniazkov.webserver.ResponseCookie;
+import com.kniazkov.webserver.SameSite;
 import com.kniazkov.webserver.ServerException;
 
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,17 +29,17 @@ final class ResponseBuilderImpl implements ResponseBuilder {
     /**
      * The HTTP status.
      */
-    private final HttpStatus status;
+    private HttpStatus status;
 
     /**
      * The content type.
      */
-    private final ContentType contentType;
+    private String contentType;
 
     /**
      * The response data.
      */
-    private final byte[] data;
+    private byte[] data;
 
     /**
      * The response headers.
@@ -45,8 +50,18 @@ final class ResponseBuilderImpl implements ResponseBuilder {
     /**
      * The response cookies.
      */
-    private final Map<String, String> cookies =
+    private final Map<String, ResponseCookie> cookies =
         new LinkedHashMap<>();
+
+    /**
+     * Creates a default response builder.
+     */
+    ResponseBuilderImpl() {
+        this(
+            HttpStatus.OK,
+            ContentType.APPLICATION_OCTET_STREAM
+        );
+    }
 
     /**
      * Creates a response builder without a body.
@@ -85,8 +100,83 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         this.contentType = Objects.requireNonNull(
             contentType,
             "Content type must not be null"
-        );
+        ).getValue();
         this.data = data == null ? new byte[0] : data.clone();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setStatus(final HttpStatus value) {
+        status = Objects.requireNonNull(
+            value,
+            "HTTP status must not be null"
+        );
+        return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setContentType(final ContentType value) {
+        contentType = Objects.requireNonNull(
+            value,
+            "Content type must not be null"
+        ).getValue();
+        return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setContentType(final String value)
+        throws ServerException {
+
+        validateContentType(value);
+        contentType = value.trim();
+        return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setData(final byte[] value) {
+        data = Objects.requireNonNull(
+            value,
+            "Response data must not be null"
+        ).clone();
+        return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setText(final String value) {
+        contentType = "text/plain; charset=UTF-8";
+        return setUtf8(value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setHtml(final String value) {
+        contentType = "text/html; charset=UTF-8";
+        return setUtf8(value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setJson(final String value) {
+        contentType = ContentType.APPLICATION_JSON.getValue();
+        return setUtf8(value);
     }
 
     /**
@@ -133,8 +223,33 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         final String name,
         final String value
     ) throws ServerException {
-        validateCookie(name, value);
-        cookies.put(name, value);
+        if (name == null) {
+            throw new ServerException("Cookie name is missing");
+        }
+
+        if (value == null) {
+            throw new ServerException("Cookie value is missing");
+        }
+
+        return setCookie(
+            new ResponseCookie.Builder(name, value).build()
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setCookie(final ResponseCookie cookie)
+        throws ServerException {
+
+        final ResponseCookie value = Objects.requireNonNull(
+            cookie,
+            "Cookie must not be null"
+        );
+
+        validateCookie(value);
+        cookies.put(value.getName(), value);
         return this;
     }
 
@@ -143,6 +258,12 @@ final class ResponseBuilderImpl implements ResponseBuilder {
      */
     @Override
     public Response build() throws ServerException {
+        if (!status.allowsBody() && data.length != 0) {
+            throw new ServerException(
+                "HTTP status " + status + " does not permit a body"
+            );
+        }
+
         final Map<String, List<String>> result =
             new LinkedHashMap<>();
 
@@ -159,13 +280,8 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         if (!cookies.isEmpty()) {
             final List<String> values = new ArrayList<>();
 
-            for (
-                Map.Entry<String, String> cookie
-                : cookies.entrySet()
-            ) {
-                values.add(
-                    cookie.getKey() + "=" + cookie.getValue()
-                );
+            for (ResponseCookie cookie : cookies.values()) {
+                values.add(formatCookie(cookie));
             }
 
             result.computeIfAbsent(
@@ -240,10 +356,12 @@ final class ResponseBuilderImpl implements ResponseBuilder {
      * @throws ServerException
      *     if the cookie is invalid.
      */
-    private static void validateCookie(
-        final String name,
-        final String value
-    ) throws ServerException {
+    private static void validateCookie(final ResponseCookie cookie)
+        throws ServerException {
+
+        final String name = cookie.getName();
+        final String value = cookie.getValue();
+
         if (name == null || name.isEmpty()) {
             throw new ServerException(
                 "Cookie name is missing"
@@ -273,5 +391,157 @@ final class ResponseBuilderImpl implements ResponseBuilder {
                 "Invalid cookie value"
             );
         }
+
+        if (cookie.getPath().isPresent()) {
+            validateCookieAttribute(
+                "path",
+                cookie.getPath().get()
+            );
+        }
+
+        if (cookie.getDomain().isPresent()) {
+            validateCookieAttribute(
+                "domain",
+                cookie.getDomain().get()
+            );
+        }
+
+        if (
+            cookie.getSameSite().orElse(null) == SameSite.NONE
+                && !cookie.isSecure()
+        ) {
+            throw new ServerException(
+                "SameSite=None cookie must be secure"
+            );
+        }
+    }
+
+    /**
+     * Sets a UTF-8 response body without changing the content type.
+     *
+     * @param value
+     *     the response text.
+     * @return
+     *     this builder.
+     */
+    private ResponseBuilder setUtf8(final String value) {
+        data = Objects.requireNonNull(
+            value,
+            "Response value must not be null"
+        ).getBytes(StandardCharsets.UTF_8);
+        return this;
+    }
+
+    /**
+     * Validates an arbitrary Content-Type value.
+     *
+     * @param value
+     *     the value to validate.
+     * @throws ServerException
+     *     if the value is invalid.
+     */
+    private static void validateContentType(final String value)
+        throws ServerException {
+
+        if (value == null || value.isBlank()) {
+            throw new ServerException("Content type is missing");
+        }
+
+        for (int index = 0; index < value.length(); index++) {
+            final char character = value.charAt(index);
+
+            if (
+                character == '\r'
+                    || character == '\n'
+                    || character == '\0'
+            ) {
+                throw new ServerException("Invalid content type");
+            }
+        }
+    }
+
+    /**
+     * Validates a cookie attribute value.
+     *
+     * @param name
+     *     the attribute name.
+     * @param value
+     *     the attribute value.
+     * @throws ServerException
+     *     if the value is invalid.
+     */
+    private static void validateCookieAttribute(
+        final String name,
+        final String value
+    ) throws ServerException {
+
+        if (value.isEmpty()) {
+            throw new ServerException(
+                "Cookie " + name + " is empty"
+            );
+        }
+
+        if (
+            value.indexOf('\r') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf(';') >= 0
+        ) {
+            throw new ServerException(
+                "Invalid cookie " + name
+            );
+        }
+    }
+
+    /**
+     * Formats a Set-Cookie header value.
+     *
+     * @param cookie
+     *     the response cookie.
+     * @return
+     *     the header value.
+     */
+    private static String formatCookie(final ResponseCookie cookie) {
+        final StringBuilder result = new StringBuilder()
+            .append(cookie.getName())
+            .append('=')
+            .append(cookie.getValue());
+
+        cookie.getPath().ifPresent(
+            value -> result.append("; Path=").append(value)
+        );
+
+        cookie.getDomain().ifPresent(
+            value -> result.append("; Domain=").append(value)
+        );
+
+        cookie.getExpires().ifPresent(
+            value -> result
+                .append("; Expires=")
+                .append(
+                    DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                        value.atZone(ZoneOffset.UTC)
+                    )
+                )
+        );
+
+        cookie.getMaxAge().ifPresent(
+            value -> result.append("; Max-Age=").append(value)
+        );
+
+        if (cookie.isSecure()) {
+            result.append("; Secure");
+        }
+
+        if (cookie.isHttpOnly()) {
+            result.append("; HttpOnly");
+        }
+
+        cookie.getSameSite().ifPresent(
+            value -> result
+                .append("; SameSite=")
+                .append(value.getValue())
+        );
+
+        return result.toString();
     }
 }

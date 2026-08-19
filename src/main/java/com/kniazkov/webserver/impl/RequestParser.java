@@ -6,6 +6,7 @@ package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpMethod;
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.HttpVersion;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.Request;
@@ -70,7 +71,24 @@ final class RequestParser {
         final ByteSource source,
         final Options options
     ) throws ServerException {
-        return new RequestParser(source, options).parse();
+        try {
+            return new RequestParser(source, options).parse();
+        } catch (
+            ConnectionClosedException
+                | ConnectionTimeoutException exception
+        ) {
+            throw exception;
+        } catch (ServerException exception) {
+            if (exception.getStatus().isPresent()) {
+                throw exception;
+            }
+
+            throw new ServerException(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                exception
+            );
+        }
     }
 
     /**
@@ -121,6 +139,7 @@ final class RequestParser {
 
         if (headers.getValues().containsKey("Transfer-Encoding")) {
             throw new ServerException(
+                HttpStatus.NOT_IMPLEMENTED,
                 "Transfer-Encoding is not supported"
             );
         }
@@ -173,6 +192,7 @@ final class RequestParser {
 
         if (contentLength > Integer.MAX_VALUE) {
             throw new ServerException(
+                HttpStatus.PAYLOAD_TOO_LARGE,
                 "Request body is too large"
             );
         }

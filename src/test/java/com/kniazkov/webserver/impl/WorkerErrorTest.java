@@ -5,6 +5,7 @@
 package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.Handler;
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.ServerException;
 
@@ -44,7 +45,7 @@ final class WorkerErrorTest extends WorkerBaseTest {
                 readResponse(connection.socket());
 
             assertTrue(
-                response.statusLine().startsWith("HTTP/1.1 500")
+                response.statusLine().startsWith("HTTP/1.1 400")
             );
 
             connection.worker().join(TIMEOUT);
@@ -81,6 +82,44 @@ final class WorkerErrorTest extends WorkerBaseTest {
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 500")
             );
+            assertFalse(response.text().contains("Handler failed"));
+        }
+    }
+
+    /**
+     * Tests a handler that deliberately reports a client-visible HTTP error.
+     */
+    @Test
+    void handlerThrowsHttpError() throws Exception {
+        final Handler handler = (request, environment) -> {
+            throw new ServerException(
+                HttpStatus.CONFLICT,
+                "Resource already exists"
+            );
+        };
+
+        final Options options = new Options.Builder()
+            .setHandler(handler)
+            .build();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 409")
+            );
+            assertTrue(
+                response.text().contains("Resource already exists")
+            );
         }
     }
 
@@ -111,6 +150,9 @@ final class WorkerErrorTest extends WorkerBaseTest {
 
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 500")
+            );
+            assertFalse(
+                response.text().contains("Something exploded")
             );
         }
     }
@@ -151,7 +193,7 @@ final class WorkerErrorTest extends WorkerBaseTest {
                 readResponse(connection.socket());
 
             assertTrue(
-                response.statusLine().startsWith("HTTP/1.1 500")
+                response.statusLine().startsWith("HTTP/1.1 503")
             );
 
             assertFalse(
@@ -241,10 +283,10 @@ final class WorkerErrorTest extends WorkerBaseTest {
     }
 
     /**
-     * Tests rejection of a request exceeding the configured maximum size.
+     * Tests rejection of request headers exceeding the configured limit.
      */
     @Test
-    void requestTooLarge() throws Exception {
+    void headersTooLarge() throws Exception {
         final String request =
             "POST / HTTP/1.1\r\n"
                 + "Host: localhost\r\n"
@@ -266,12 +308,104 @@ final class WorkerErrorTest extends WorkerBaseTest {
                 readResponse(connection.socket());
 
             assertTrue(
-                response.statusLine().startsWith("HTTP/1.1 500")
+                response.statusLine().startsWith("HTTP/1.1 431")
             );
 
             connection.worker().join(TIMEOUT);
 
             assertFalse(connection.worker().isAlive());
+        }
+    }
+
+    /**
+     * Tests rejection of a complete request exceeding the configured limit.
+     */
+    @Test
+    void requestTooLarge() throws Exception {
+        final String body = "x".repeat(300);
+        final String request =
+            "POST / HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Content-Length: " + body.length() + "\r\n"
+                + "Connection: close\r\n"
+                + "\r\n"
+                + body;
+
+        final Options options = new Options.Builder()
+            .setMaxHeaderSize(256)
+            .setMaxFileSize(64)
+            .setMaxRequestSize(256)
+            .build();
+
+        try (Connection connection = connect(options)) {
+            send(connection.socket(), request);
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 413")
+            );
+        }
+    }
+
+    /**
+     * Tests protocol-specific errors for unsupported request features.
+     */
+    @Test
+    void unsupportedProtocolFeatures() throws Exception {
+        final Options options = new Options.Builder().build();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "DELETE / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 501")
+            );
+        }
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET / HTTP/2.0\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 505")
+            );
+        }
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "POST / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Transfer-Encoding: chunked\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 501")
+            );
         }
     }
 }

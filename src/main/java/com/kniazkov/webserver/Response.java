@@ -32,6 +32,19 @@ public interface Response {
     ContentType getContentType();
 
     /**
+     * Returns the complete Content-Type header value.
+     * <p>
+     * Unlike {@link #getContentType()}, this method preserves custom media
+     * types and parameters such as {@code charset}.
+     *
+     * @return
+     *     the complete content type value.
+     */
+    default String getContentTypeValue() {
+        return getContentType().getValue();
+    }
+
+    /**
      * Returns the response headers.
      * <p>
      * Both the returned map and the lists contained in it are immutable.

@@ -63,7 +63,10 @@ public enum HttpMethod {
                 return method;
             }
         }
-        throw new ServerException("Unsupported HTTP method: " + value);
+        throw new ServerException(
+            HttpStatus.NOT_IMPLEMENTED,
+            "Unsupported HTTP method: " + value
+        );
     }
 
     /**

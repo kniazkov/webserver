@@ -299,6 +299,30 @@ return factory
 
 The appropriate `Content-Type` is selected automatically.
 
+### Status, Binary Data, and Custom Media Types
+
+Any response status can be selected through the general response builder:
+
+```java
+return factory
+    .response(HttpStatus.CREATED)
+    .setJson("{\"id\":42}")
+    .setHeader("Location", "/items/42")
+    .build();
+```
+
+Raw bytes can be returned without text conversion:
+
+```java
+return factory
+    .fromBytes(packet, "application/vnd.example.packet")
+    .setStatus(HttpStatus.CREATED)
+    .build();
+```
+
+`fromBytes(byte[])` defaults to `application/octet-stream`. A known
+`ContentType` or any valid media type string can be supplied when needed.
+
 ### Headers
 
 Additional response headers can be added before building the response:
@@ -325,6 +349,26 @@ return factory
 
 This keeps cookie handling explicit without requiring application code to manually construct `Set-Cookie` headers.
 
+Cookie attributes are represented by `ResponseCookie`:
+
+```java
+final ResponseCookie cookie = new ResponseCookie.Builder(
+    "session",
+    sessionId
+)
+    .setPath("/")
+    .setMaxAge(Duration.ofHours(8))
+    .setSecure(true)
+    .setHttpOnly(true)
+    .setSameSite(SameSite.LAX)
+    .build();
+
+return factory
+    .fromText("Logged in")
+    .setCookie(cookie)
+    .build();
+```
+
 ### Standard Responses
 
 Common HTTP responses are available directly from the factory:
@@ -344,6 +388,21 @@ or, when an error is represented by a `ServerException`:
 ```java
 return factory.error(exception);
 ```
+
+An exception without a status is treated as an internal error. Its message is
+not exposed to the client. A handler can deliberately return an HTTP error by
+including a status:
+
+```java
+throw new ServerException(
+    HttpStatus.CONFLICT,
+    "Resource already exists"
+);
+```
+
+The server then returns `409 Conflict` and passes the supplied message to the
+configured error page. Request parsing errors similarly use protocol-specific
+statuses such as `400`, `413`, `431`, `501`, and `505`.
 
 The appearance of generated error pages can be customized through the server configuration without changing handler code.
 
