@@ -169,7 +169,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
     void dataAfterFinalBoundary() throws ServerException {
         final String tail = "GET /next HTTP/1.1\r\n";
 
-        final String value =
+        final String requestData =
             "--" + BOUNDARY + "\r\n"
                 + "Content-Disposition: form-data; name=\"name\"\r\n"
                 + "\r\n"
@@ -177,9 +177,9 @@ final class MultipartParserTest extends MultipartParserBaseTest {
                 + "--" + BOUNDARY + "--"
                 + tail;
 
-        final ByteSource source = new StringByteSource(value);
+        final ByteSource source = new StringByteSource(requestData);
         final MemoryUploadedData data = new MemoryUploadedData(
-            bytes(value)
+            bytes(requestData)
         );
 
         final RequestBuilder builder = new RequestBuilder()
