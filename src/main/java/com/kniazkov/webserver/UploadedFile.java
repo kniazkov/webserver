@@ -7,9 +7,10 @@ package com.kniazkov.webserver;
 /**
  * Represents a file uploaded as part of an HTTP request.
  * <p>
- * Implementations of this interface are immutable.
+ * Implementations of this interface are immutable. Uploaded file data remains
+ * available only while the request handler is running.
  */
-public interface UploadedFile {
+public interface UploadedFile extends UploadedData {
 
     /**
      * Returns the original file name.
@@ -27,14 +28,4 @@ public interface UploadedFile {
      */
     ContentType getContentType();
 
-    /**
-     * Returns the uploaded file data.
-     * <p>
-     * A new copy of the underlying byte array is created on every invocation.
-     * Modifying the returned array does not affect this uploaded file.
-     *
-     * @return
-     *     a copy of the uploaded file data.
-     */
-    byte[] getData();
 }

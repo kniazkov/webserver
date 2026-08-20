@@ -70,11 +70,10 @@ public interface Request {
     /**
      * Returns the original request body.
      * <p>
-     * A new copy of the underlying byte array is created on every invocation.
-     * Modifying the returned array does not affect this request.
+     * The data remains available only while the request handler is running.
      *
      * @return
-     *     a copy of the original request body.
+     *     the uploaded request data.
      */
-    byte[] getBody();
+    UploadedData getBody();
 }

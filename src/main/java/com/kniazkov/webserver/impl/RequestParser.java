@@ -14,6 +14,8 @@ import com.kniazkov.webserver.RequestHeaders;
 import com.kniazkov.webserver.RequestPath;
 import com.kniazkov.webserver.ServerException;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -40,6 +42,11 @@ final class RequestParser {
      * The parsed request headers.
      */
     private RequestHeaders headers;
+
+    /**
+     * The request body storage until ownership is transferred to a request.
+     */
+    private StoredUploadedData body;
 
     /**
      * Creates a request parser.
@@ -98,13 +105,27 @@ final class RequestParser {
      * @throws ServerException if the request is invalid.
      */
     private Request parse() throws ServerException {
-        parseHeaders();
-        validateVersion();
-        parseTarget();
-        parseCookies();
-        parseBody();
+        try {
+            parseHeaders();
+            validateVersion();
+            parseTarget();
+            parseCookies();
+            parseBody();
 
-        return builder.build();
+            final Request result = builder.build();
+            body = null;
+            return result;
+        } catch (ServerException exception) {
+            if (body != null) {
+                try {
+                    body.close();
+                } catch (ServerException cleanup) {
+                    exception.addSuppressed(cleanup);
+                }
+            }
+
+            throw exception;
+        }
     }
 
     /**
@@ -190,56 +211,79 @@ final class RequestParser {
             return;
         }
 
-        if (contentLength > Integer.MAX_VALUE) {
+        final long remainingLimit = options.getMaxRequestSize()
+            - source.getCount();
+
+        if (contentLength > remainingLimit) {
             throw new ServerException(
                 HttpStatus.PAYLOAD_TOO_LARGE,
-                "Request body is too large"
+                "Maximum HTTP request size exceeded"
             );
         }
 
-        final BodyByteSource bodySource = new BodyByteSource(
+        body = UploadedDataReader.read(
             source,
-            contentLength
+            contentLength,
+            options.getMaxInMemoryBodySize()
         );
+
+        builder.setBody(body);
 
         final ContentType contentType = getContentType();
 
-        if (
-            headers.getMethod() == HttpMethod.POST
-                && contentType == ContentType.MULTIPART_FORM_DATA
-        ) {
-            final String boundary = getBoundary();
+        if (headers.getMethod() == HttpMethod.POST) {
+            if (contentType == ContentType.MULTIPART_FORM_DATA) {
+                parseMultipart();
+            } else if (
+                contentType
+                    == ContentType.APPLICATION_FORM_URLENCODED
+            ) {
+                parseUrlEncodedForm();
+            }
+        }
+    }
 
+    /**
+     * Parses the stored request body as multipart form data.
+     *
+     * @throws ServerException
+     *     if the multipart body is invalid.
+     */
+    private void parseMultipart() throws ServerException {
+        try (InputStream input = body.openStream()) {
             MultipartParser.parse(
-                bodySource,
-                boundary,
+                new InputStreamByteSource(input),
+                body,
+                getBoundary(),
                 options,
                 builder
             );
-
-            /*
-             * MultipartParser deliberately stops immediately after the final
-             * boundary. Consume the rest of this HTTP body according to
-             * Content-Length, but never bytes belonging to the next request.
-             */
-            bodySource.drain();
-        } else {
-            bodySource.drain();
-        }
-
-        final byte[] body = bodySource.getData();
-        builder.setBody(body);
-
-        if (
-            headers.getMethod() == HttpMethod.POST
-                && contentType
-                == ContentType.APPLICATION_FORM_URLENCODED
-        ) {
-            UrlEncodedParser.parseForm(
-                body,
-                builder
+        } catch (IOException exception) {
+            throw new ServerException(
+                "Cannot close uploaded request data",
+                exception
             );
         }
+    }
+
+    /**
+     * Parses the stored request body as URL-encoded form data.
+     *
+     * @throws ServerException
+     *     if the form is invalid or too large.
+     */
+    private void parseUrlEncodedForm() throws ServerException {
+        if (body.getSize() > options.getMaxFormSize()) {
+            throw new ServerException(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Maximum form data size exceeded"
+            );
+        }
+
+        UrlEncodedParser.parseForm(
+            body.readAllBytes(),
+            builder
+        );
     }
 
     /**

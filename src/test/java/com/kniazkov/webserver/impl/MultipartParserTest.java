@@ -158,7 +158,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             body.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-            request.getBody()
+            request.getBody().readAllBytes()
         );
     }
 
@@ -169,13 +169,17 @@ final class MultipartParserTest extends MultipartParserBaseTest {
     void dataAfterFinalBoundary() throws ServerException {
         final String tail = "GET /next HTTP/1.1\r\n";
 
-        final ByteSource source = new StringByteSource(
+        final String value =
             "--" + BOUNDARY + "\r\n"
                 + "Content-Disposition: form-data; name=\"name\"\r\n"
                 + "\r\n"
                 + "Ivan\r\n"
                 + "--" + BOUNDARY + "--"
-                + tail
+                + tail;
+
+        final ByteSource source = new StringByteSource(value);
+        final MemoryUploadedData data = new MemoryUploadedData(
+            bytes(value)
         );
 
         final RequestBuilder builder = new RequestBuilder()
@@ -183,6 +187,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
 
         MultipartParser.parse(
             source,
+            data,
             BOUNDARY,
             STANDARD_OPTIONS,
             builder
@@ -284,7 +289,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
             request.getFiles().get("file").getFirst();
 
         assertEquals("data.bin", file.getName());
-        assertArrayEquals(bytes("data"), file.getData());
+        assertArrayEquals(bytes("data"), file.readAllBytes());
     }
 
     /**
@@ -305,7 +310,7 @@ final class MultipartParserTest extends MultipartParserBaseTest {
             request.getFiles().get("file").getFirst();
 
         assertEquals("data.bin", file.getName());
-        assertArrayEquals(bytes("data"), file.getData());
+        assertArrayEquals(bytes("data"), file.readAllBytes());
     }
 
     /**

@@ -53,7 +53,8 @@ final class RequestBuilder {
     /**
      * The original request body.
      */
-    private byte[] body = new byte[0];
+    private StoredUploadedData body =
+        new MemoryUploadedData(new byte[0]);
 
     /**
      * Sets the request headers.
@@ -149,8 +150,8 @@ final class RequestBuilder {
      * @return
      *     this builder.
      */
-    RequestBuilder setBody(final byte[] value) {
-        body = value.clone();
+    RequestBuilder setBody(final StoredUploadedData value) {
+        body = value;
         return this;
     }
 
