@@ -301,12 +301,20 @@ The appropriate `Content-Type` is selected automatically.
 
 ### Status, Binary Data, and Custom Media Types
 
-Any response status can be selected through the general response builder:
+Factory methods fix the status, content type, and body when the builder is
+created. The builder can add headers and cookies, but cannot turn a text
+response into JSON or change its status.
+
+When no specific factory method fits, one explicit escape hatch accepts all
+three fundamental response properties:
 
 ```java
 return factory
-    .response(HttpStatus.CREATED)
-    .setJson("{\"id\":42}")
+    .custom(
+        HttpStatus.CREATED,
+        "application/json",
+        "{\"id\":42}".getBytes(StandardCharsets.UTF_8)
+    )
     .setHeader("Location", "/items/42")
     .build();
 ```
@@ -315,13 +323,13 @@ Raw bytes can be returned without text conversion:
 
 ```java
 return factory
-    .fromBytes(packet, "application/vnd.example.packet")
-    .setStatus(HttpStatus.CREATED)
+    .fromBytes(packet)
     .build();
 ```
 
-`fromBytes(byte[])` defaults to `application/octet-stream`. A known
-`ContentType` or any valid media type string can be supplied when needed.
+`fromBytes(byte[])` is always `200 OK` with
+`application/octet-stream`. Custom status or media-type combinations must use
+`custom(...)`, making the unsafe path deliberate and visible at the call site.
 
 ### Headers
 
@@ -334,7 +342,9 @@ return factory
     .build();
 ```
 
-Headers managed by the HTTP server itself, most notably `Content-Type` and `Content-Length`, do not need to be supplied by application code. The final content length is calculated from the actual response data.
+Headers managed by the HTTP server itself (`Content-Type`, `Content-Length`,
+and `Transfer-Encoding`) cannot be supplied through the builder. The final
+content length is calculated from the actual response data.
 
 ### Cookies
 

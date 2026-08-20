@@ -12,7 +12,6 @@ import com.kniazkov.webserver.ResponseCookie;
 import com.kniazkov.webserver.SameSite;
 import com.kniazkov.webserver.ServerException;
 
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -29,17 +28,17 @@ final class ResponseBuilderImpl implements ResponseBuilder {
     /**
      * The HTTP status.
      */
-    private HttpStatus status;
+    private final HttpStatus status;
 
     /**
      * The content type.
      */
-    private String contentType;
+    private final String contentType;
 
     /**
      * The response data.
      */
-    private byte[] data;
+    private final byte[] data;
 
     /**
      * The response headers.
@@ -52,16 +51,6 @@ final class ResponseBuilderImpl implements ResponseBuilder {
      */
     private final Map<String, ResponseCookie> cookies =
         new LinkedHashMap<>();
-
-    /**
-     * Creates a default response builder.
-     */
-    ResponseBuilderImpl() {
-        this(
-            HttpStatus.OK,
-            ContentType.APPLICATION_OCTET_STREAM
-        );
-    }
 
     /**
      * Creates a response builder without a body.
@@ -105,78 +94,32 @@ final class ResponseBuilderImpl implements ResponseBuilder {
     }
 
     /**
-     * {@inheritDoc}
+     * Creates a response builder with an arbitrary content type.
+     *
+     * @param status
+     *     the HTTP status.
+     * @param contentType
+     *     the complete Content-Type value.
+     * @param data
+     *     the response body.
      */
-    @Override
-    public ResponseBuilder setStatus(final HttpStatus value) {
-        status = Objects.requireNonNull(
-            value,
+    ResponseBuilderImpl(
+        final HttpStatus status,
+        final String contentType,
+        final byte[] data
+    ) {
+        this.status = Objects.requireNonNull(
+            status,
             "HTTP status must not be null"
         );
-        return this;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder setContentType(final ContentType value) {
-        contentType = Objects.requireNonNull(
-            value,
+        this.contentType = Objects.requireNonNull(
+            contentType,
             "Content type must not be null"
-        ).getValue();
-        return this;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder setContentType(final String value)
-        throws ServerException {
-
-        validateContentType(value);
-        contentType = value.trim();
-        return this;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder setData(final byte[] value) {
-        data = Objects.requireNonNull(
-            value,
+        ).trim();
+        this.data = Objects.requireNonNull(
+            data,
             "Response data must not be null"
         ).clone();
-        return this;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder setText(final String value) {
-        contentType = "text/plain; charset=UTF-8";
-        return setUtf8(value);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder setHtml(final String value) {
-        contentType = "text/html; charset=UTF-8";
-        return setUtf8(value);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder setJson(final String value) {
-        contentType = ContentType.APPLICATION_JSON.getValue();
-        return setUtf8(value);
     }
 
     /**
@@ -335,6 +278,16 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         }
 
         if (
+            name.equalsIgnoreCase("Content-Type")
+                || name.equalsIgnoreCase("Content-Length")
+                || name.equalsIgnoreCase("Transfer-Encoding")
+        ) {
+            throw new ServerException(
+                "Response header is managed by the server: " + name
+            );
+        }
+
+        if (
             value.indexOf('\r') >= 0
                 || value.indexOf('\n') >= 0
         ) {
@@ -417,22 +370,6 @@ final class ResponseBuilderImpl implements ResponseBuilder {
     }
 
     /**
-     * Sets a UTF-8 response body without changing the content type.
-     *
-     * @param value
-     *     the response text.
-     * @return
-     *     this builder.
-     */
-    private ResponseBuilder setUtf8(final String value) {
-        data = Objects.requireNonNull(
-            value,
-            "Response value must not be null"
-        ).getBytes(StandardCharsets.UTF_8);
-        return this;
-    }
-
-    /**
      * Validates an arbitrary Content-Type value.
      *
      * @param value
@@ -440,7 +377,7 @@ final class ResponseBuilderImpl implements ResponseBuilder {
      * @throws ServerException
      *     if the value is invalid.
      */
-    private static void validateContentType(final String value)
+    static void validateContentType(final String value)
         throws ServerException {
 
         if (value == null || value.isBlank()) {

@@ -14,25 +14,6 @@ import java.io.File;
 public interface ResponseFactory {
 
     /**
-     * Creates an empty {@code 200 OK} response builder using
-     * {@code application/octet-stream}.
-     *
-     * @return
-     *     the response builder.
-     */
-    ResponseBuilder response();
-
-    /**
-     * Creates an empty response builder with the specified status.
-     *
-     * @param status
-     *     the HTTP status.
-     * @return
-     *     the response builder.
-     */
-    ResponseBuilder response(HttpStatus status);
-
-    /**
      * Returns an empty successful response.
      *
      * @return
@@ -98,7 +79,8 @@ public interface ResponseFactory {
     Response error(HttpStatus status, String message);
 
     /**
-     * Creates a response builder containing arbitrary bytes.
+     * Creates a {@code 200 OK} response builder containing arbitrary bytes
+     * with the {@code application/octet-stream} content type.
      *
      * @param data
      *     the response body.
@@ -108,36 +90,27 @@ public interface ResponseFactory {
     ResponseBuilder fromBytes(byte[] data);
 
     /**
-     * Creates a response builder containing arbitrary bytes.
+     * Creates a fully custom response builder.
+     * <p>
+     * This is the only factory method that allows the status, content type,
+     * and body to be selected independently. Prefer a more specific factory
+     * method whenever one matches the response being created.
      *
-     * @param data
-     *     the response body.
-     * @param contentType
-     *     the known content type.
-     * @return
-     *     the response builder.
-     */
-    ResponseBuilder fromBytes(
-        byte[] data,
-        ContentType contentType
-    );
-
-    /**
-     * Creates a response builder containing arbitrary bytes with an arbitrary
-     * media type.
-     *
-     * @param data
-     *     the response body.
+     * @param status
+     *     the HTTP status.
      * @param contentType
      *     the complete Content-Type value.
+     * @param data
+     *     the response body.
      * @return
      *     the response builder.
      * @throws ServerException
      *     if the content type is invalid.
      */
-    ResponseBuilder fromBytes(
-        byte[] data,
-        String contentType
+    ResponseBuilder custom(
+        HttpStatus status,
+        String contentType,
+        byte[] data
     ) throws ServerException;
 
     /**

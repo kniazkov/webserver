@@ -35,8 +35,11 @@ final class WorkerSimpleTest extends WorkerBaseTest {
         final Handler handler = (request, environment) ->
             environment
                 .getResponseFactory()
-                .fromBytes(body, "application/vnd.example.packet")
-                .setStatus(HttpStatus.CREATED)
+                .custom(
+                    HttpStatus.CREATED,
+                    "application/vnd.example.packet",
+                    body
+                )
                 .build();
 
         final Options options = new Options.Builder()

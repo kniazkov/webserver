@@ -72,23 +72,6 @@ final class ResponseFactoryImpl implements ResponseFactory {
      * {@inheritDoc}
      */
     @Override
-    public ResponseBuilder response() {
-        return new ResponseBuilderImpl();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder response(final HttpStatus status) {
-        return new ResponseBuilderImpl()
-            .setStatus(status);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public Response forbidden() {
         return forbidden;
     }
@@ -170,33 +153,28 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromBytes(final byte[] data) {
-        return response().setData(data);
+        return new ResponseBuilderImpl(
+            HttpStatus.OK,
+            ContentType.APPLICATION_OCTET_STREAM,
+            data
+        );
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public ResponseBuilder fromBytes(
-        final byte[] data,
-        final ContentType contentType
-    ) {
-        return response()
-            .setContentType(contentType)
-            .setData(data);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResponseBuilder fromBytes(
-        final byte[] data,
-        final String contentType
+    public ResponseBuilder custom(
+        final HttpStatus status,
+        final String contentType,
+        final byte[] data
     ) throws ServerException {
-        return response()
-            .setContentType(contentType)
-            .setData(data);
+        ResponseBuilderImpl.validateContentType(contentType);
+        return new ResponseBuilderImpl(
+            status,
+            contentType,
+            data
+        );
     }
 
     /**
@@ -204,7 +182,10 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromText(final String value) {
-        return response().setText(value);
+        return text(
+            "text/plain; charset=UTF-8",
+            value
+        );
     }
 
     /**
@@ -212,7 +193,10 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromHtml(final String value) {
-        return response().setHtml(value);
+        return text(
+            "text/html; charset=UTF-8",
+            value
+        );
     }
 
     /**
@@ -220,7 +204,10 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromJson(final String value) {
-        return response().setJson(value);
+        return text(
+            ContentType.APPLICATION_JSON.getValue(),
+            value
+        );
     }
 
     /**
@@ -228,14 +215,10 @@ final class ResponseFactoryImpl implements ResponseFactory {
      */
     @Override
     public ResponseBuilder fromXml(final String value) {
-        return response()
-            .setContentType(ContentType.APPLICATION_XML)
-            .setData(
-                Objects.requireNonNull(
-                    value,
-                    "Response value must not be null"
-                ).getBytes(StandardCharsets.UTF_8)
-            );
+        return text(
+            ContentType.APPLICATION_XML.getValue(),
+            value
+        );
     }
 
     /**
@@ -244,8 +227,11 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public ResponseBuilder redirect(final String location)
         throws ServerException {
-        return response(HttpStatus.FOUND)
-            .setHeader("Location", location);
+        final ResponseBuilder builder = new ResponseBuilderImpl(
+            HttpStatus.FOUND,
+            ContentType.APPLICATION_OCTET_STREAM
+        );
+        return builder.setHeader("Location", location);
     }
 
     /**
@@ -255,8 +241,11 @@ final class ResponseFactoryImpl implements ResponseFactory {
     public ResponseBuilder redirectPermanently(
         final String location
     ) throws ServerException {
-        return response(HttpStatus.MOVED_PERMANENTLY)
-            .setHeader("Location", location);
+        final ResponseBuilder builder = new ResponseBuilderImpl(
+            HttpStatus.MOVED_PERMANENTLY,
+            ContentType.APPLICATION_OCTET_STREAM
+        );
+        return builder.setHeader("Location", location);
     }
 
     @Override
@@ -332,6 +321,30 @@ final class ResponseFactoryImpl implements ResponseFactory {
                 status.getCode(),
                 status.getReason(),
                 message == null ? status.getReason() : message
+            ).getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    /**
+     * Creates a successful UTF-8 text response builder.
+     *
+     * @param contentType
+     *     the fixed Content-Type value.
+     * @param value
+     *     the text value.
+     * @return
+     *     the response builder.
+     */
+    private static ResponseBuilder text(
+        final String contentType,
+        final String value
+    ) {
+        return new ResponseBuilderImpl(
+            HttpStatus.OK,
+            contentType,
+            Objects.requireNonNull(
+                value,
+                "Response value must not be null"
             ).getBytes(StandardCharsets.UTF_8)
         );
     }

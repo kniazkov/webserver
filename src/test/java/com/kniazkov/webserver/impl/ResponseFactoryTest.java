@@ -7,6 +7,7 @@ package com.kniazkov.webserver.impl;
 import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Response;
+import com.kniazkov.webserver.ResponseBuilder;
 import com.kniazkov.webserver.ResponseCookie;
 import com.kniazkov.webserver.ResponseFactory;
 import com.kniazkov.webserver.SameSite;
@@ -17,7 +18,10 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,8 +50,11 @@ final class ResponseFactoryTest {
         };
 
         final Response response = factory
-            .fromBytes(data, "application/vnd.example.packet")
-            .setStatus(HttpStatus.CREATED)
+            .custom(
+                HttpStatus.CREATED,
+                "application/vnd.example.packet",
+                data
+            )
             .setHeader("X-Request-Id", "123")
             .build();
 
@@ -73,16 +80,16 @@ final class ResponseFactoryTest {
     }
 
     /**
-     * Tests changing all fundamental response properties through one builder.
+     * Tests that a specific factory method fixes the fundamental response
+     * properties.
      */
     @Test
-    void generalBuilder() throws Exception {
+    void fixedJsonResponse() throws Exception {
         final Response response = factory
-            .response(HttpStatus.ACCEPTED)
-            .setJson("{\"accepted\":true}")
+            .fromJson("{\"accepted\":true}")
             .build();
 
-        assertEquals(HttpStatus.ACCEPTED, response.getStatus());
+        assertEquals(HttpStatus.OK, response.getStatus());
         assertEquals(
             ContentType.APPLICATION_JSON,
             response.getContentType()
@@ -115,7 +122,7 @@ final class ResponseFactoryTest {
             .build();
 
         final Response response = factory
-            .response()
+            .fromText("OK")
             .setCookie(cookie)
             .build();
 
@@ -197,9 +204,60 @@ final class ResponseFactoryTest {
         assertThrows(
             ServerException.class,
             () -> factory
-                .response(HttpStatus.NO_CONTENT)
-                .setText("Not allowed")
+                .custom(
+                    HttpStatus.NO_CONTENT,
+                    ContentType.TEXT_PLAIN.getValue(),
+                    "Not allowed".getBytes(StandardCharsets.UTF_8)
+                )
                 .build()
+        );
+    }
+
+    /**
+     * Tests that response builders can only add response metadata.
+     */
+    @Test
+    void builderExposesOnlyMetadata() {
+        final Set<String> methods = Arrays
+            .stream(ResponseBuilder.class.getDeclaredMethods())
+            .map(method -> method.getName())
+            .collect(Collectors.toSet());
+
+        assertEquals(
+            Set.of(
+                "addHeader",
+                "setHeader",
+                "setCookie",
+                "build"
+            ),
+            methods
+        );
+    }
+
+    /**
+     * Tests that entity headers cannot override the factory selection.
+     */
+    @Test
+    void managedHeadersAreRejected() {
+        assertThrows(
+            ServerException.class,
+            () -> factory
+                .fromText("Text")
+                .setHeader("Content-Type", "application/json")
+        );
+
+        assertThrows(
+            ServerException.class,
+            () -> factory
+                .fromBytes(new byte[]{1, 2, 3})
+                .setHeader("Content-Length", "100")
+        );
+
+        assertThrows(
+            ServerException.class,
+            () -> factory
+                .fromBytes(new byte[]{1, 2, 3})
+                .setHeader("Transfer-Encoding", "chunked")
         );
     }
 }

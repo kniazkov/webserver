@@ -4,6 +4,7 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.HttpVersion;
 import com.kniazkov.webserver.Response;
@@ -27,11 +28,11 @@ final class ResponseSerializerTest {
     @Test
     void customContentType() throws Exception {
         final Response response = new ResponseFactoryImpl()
-            .fromBytes(
-                new byte[]{0, (byte) 0xff},
-                "application/vnd.example; version=2"
+            .custom(
+                HttpStatus.CREATED,
+                "application/vnd.example; version=2",
+                new byte[]{0, (byte) 0xff}
             )
-            .setStatus(HttpStatus.CREATED)
             .build();
 
         final byte[] serialized = ResponseSerializer.serialize(
@@ -63,7 +64,11 @@ final class ResponseSerializerTest {
     @Test
     void noContent() throws Exception {
         final Response response = new ResponseFactoryImpl()
-            .response(HttpStatus.NO_CONTENT)
+            .custom(
+                HttpStatus.NO_CONTENT,
+                ContentType.APPLICATION_OCTET_STREAM.getValue(),
+                new byte[0]
+            )
             .build();
 
         final String serialized = new String(
