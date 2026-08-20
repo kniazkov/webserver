@@ -4,6 +4,7 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.ServerException;
 
@@ -104,6 +105,7 @@ final class StringSource {
 
             if (bytesRead > maxSize) {
                 throw new ServerException(
+                    HttpStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
                     "Maximum HTTP header size exceeded"
                 );
             }

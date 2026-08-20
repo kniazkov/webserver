@@ -5,7 +5,10 @@
 package com.kniazkov.webserver;
 
 /**
- * Builds a custom HTTP response.
+ * Adds headers and cookies to a response selected by a
+ * {@link ResponseFactory} method.
+ * <p>
+ * The status, content type, and body are fixed when this builder is created.
  */
 public interface ResponseBuilder {
 
@@ -14,6 +17,7 @@ public interface ResponseBuilder {
      * <p>
      * If the header already exists, the value is added to its existing
      * values.
+     * Server-managed entity headers cannot be added.
      *
      * @param name
      *     the header name.
@@ -31,6 +35,7 @@ public interface ResponseBuilder {
 
     /**
      * Replaces all values of an HTTP response header.
+     * Server-managed entity headers cannot be replaced.
      *
      * @param name
      *     the header name.
@@ -64,6 +69,19 @@ public interface ResponseBuilder {
         String name,
         String value
     ) throws ServerException;
+
+    /**
+     * Sets a cookie including its optional attributes.
+     *
+     * @param cookie
+     *     the response cookie.
+     * @return
+     *     this builder.
+     * @throws ServerException
+     *     if the cookie is invalid.
+     */
+    ResponseBuilder setCookie(ResponseCookie cookie)
+        throws ServerException;
 
     /**
      * Builds an immutable HTTP response.

@@ -174,7 +174,10 @@ abstract class WorkerBaseTest {
         final String lengthValue =
             headers.get("content-length");
 
-        if (lengthValue == null) {
+        if (
+            lengthValue == null
+                && !isBodyless(statusLine)
+        ) {
             throw new IOException(
                 "Content-Length header is missing"
             );
@@ -182,13 +185,17 @@ abstract class WorkerBaseTest {
 
         final int length;
 
-        try {
-            length = Integer.parseInt(lengthValue);
-        } catch (NumberFormatException exception) {
-            throw new IOException(
-                "Invalid Content-Length: " + lengthValue,
-                exception
-            );
+        if (lengthValue == null) {
+            length = 0;
+        } else {
+            try {
+                length = Integer.parseInt(lengthValue);
+            } catch (NumberFormatException exception) {
+                throw new IOException(
+                    "Invalid Content-Length: " + lengthValue,
+                    exception
+                );
+            }
         }
 
         final byte[] body = input.readNBytes(length);
@@ -204,6 +211,18 @@ abstract class WorkerBaseTest {
             Map.copyOf(headers),
             body
         );
+    }
+
+    /**
+     * Returns whether a status line identifies a response without a body.
+     *
+     * @param statusLine
+     *     the HTTP status line.
+     * @return
+     *     {@code true} for 204 and 304 responses.
+     */
+    private static boolean isBodyless(final String statusLine) {
+        return statusLine.matches("HTTP/\\d\\.\\d (204|304) .+");
     }
 
     /**

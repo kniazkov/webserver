@@ -83,21 +83,25 @@ final class ResponseSerializer {
             }
         }
 
-        writeHeader(
-            output,
-            "Content-Type",
-            response.getContentType().getValue()
-        );
+        if (response.getStatus().allowsBody()) {
+            writeHeader(
+                output,
+                "Content-Type",
+                response.getContentType().getValue()
+            );
 
-        writeHeader(
-            output,
-            "Content-Length",
-            Integer.toString(data.length)
-        );
+            writeHeader(
+                output,
+                "Content-Length",
+                Integer.toString(data.length)
+            );
+        }
 
         writeCrlf(output);
 
-        output.writeBytes(data);
+        if (response.getStatus().allowsBody()) {
+            output.writeBytes(data);
+        }
 
         return output.toByteArray();
     }

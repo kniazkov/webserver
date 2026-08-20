@@ -8,6 +8,7 @@ import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Response;
 import com.kniazkov.webserver.ResponseBuilder;
+import com.kniazkov.webserver.ResponseCookie;
 import com.kniazkov.webserver.ServerException;
 
 import java.util.ArrayList;
@@ -45,7 +46,7 @@ final class ResponseBuilderImpl implements ResponseBuilder {
     /**
      * The response cookies.
      */
-    private final Map<String, String> cookies =
+    private final Map<String, ResponseCookie> cookies =
         new LinkedHashMap<>();
 
     /**
@@ -133,8 +134,32 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         final String name,
         final String value
     ) throws ServerException {
-        validateCookie(name, value);
-        cookies.put(name, value);
+        if (name == null) {
+            throw new ServerException("Cookie name is missing");
+        }
+
+        if (value == null) {
+            throw new ServerException("Cookie value is missing");
+        }
+
+        return setCookie(
+            new ResponseCookie.Builder(name, value).build()
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ResponseBuilder setCookie(final ResponseCookie cookie)
+        throws ServerException {
+
+        final ResponseCookie value = Objects.requireNonNull(
+            cookie,
+            "Cookie must not be null"
+        );
+
+        cookies.put(value.getName(), value);
         return this;
     }
 
@@ -143,6 +168,12 @@ final class ResponseBuilderImpl implements ResponseBuilder {
      */
     @Override
     public Response build() throws ServerException {
+        if (!status.allowsBody() && data.length != 0) {
+            throw new ServerException(
+                "HTTP status " + status + " does not permit a body"
+            );
+        }
+
         final Map<String, List<String>> result =
             new LinkedHashMap<>();
 
@@ -159,13 +190,8 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         if (!cookies.isEmpty()) {
             final List<String> values = new ArrayList<>();
 
-            for (
-                Map.Entry<String, String> cookie
-                : cookies.entrySet()
-            ) {
-                values.add(
-                    cookie.getKey() + "=" + cookie.getValue()
-                );
+            for (ResponseCookie cookie : cookies.values()) {
+                values.add(cookie.toString());
             }
 
             result.computeIfAbsent(
@@ -219,6 +245,16 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         }
 
         if (
+            name.equalsIgnoreCase("Content-Type")
+                || name.equalsIgnoreCase("Content-Length")
+                || name.equalsIgnoreCase("Transfer-Encoding")
+        ) {
+            throw new ServerException(
+                "Response header is managed by the server: " + name
+            );
+        }
+
+        if (
             value.indexOf('\r') >= 0
                 || value.indexOf('\n') >= 0
         ) {
@@ -230,48 +266,4 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         return Lexer.canonicalizeHeaderName(name);
     }
 
-    /**
-     * Validates a response cookie.
-     *
-     * @param name
-     *     the cookie name.
-     * @param value
-     *     the cookie value.
-     * @throws ServerException
-     *     if the cookie is invalid.
-     */
-    private static void validateCookie(
-        final String name,
-        final String value
-    ) throws ServerException {
-        if (name == null || name.isEmpty()) {
-            throw new ServerException(
-                "Cookie name is missing"
-            );
-        }
-
-        for (int index = 0; index < name.length(); index++) {
-            if (!Lexer.isTokenCharacter(name.charAt(index))) {
-                throw new ServerException(
-                    "Invalid cookie name: " + name
-                );
-            }
-        }
-
-        if (value == null) {
-            throw new ServerException(
-                "Cookie value is missing"
-            );
-        }
-
-        if (
-            value.indexOf('\r') >= 0
-                || value.indexOf('\n') >= 0
-                || value.indexOf(';') >= 0
-        ) {
-            throw new ServerException(
-                "Invalid cookie value"
-            );
-        }
-    }
 }

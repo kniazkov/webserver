@@ -61,7 +61,10 @@ public enum HttpVersion {
                 return version;
             }
         }
-        throw new ServerException("Unsupported HTTP version: " + value);
+        throw new ServerException(
+            HttpStatus.HTTP_VERSION_NOT_SUPPORTED,
+            "Unsupported HTTP version: " + value
+        );
     }
 
     /**

@@ -57,6 +57,61 @@ public interface ResponseFactory {
     Response error(ServerException exception);
 
     /**
+     * Returns an error response with the specified status.
+     *
+     * @param status
+     *     the HTTP error status.
+     * @return
+     *     the response.
+     */
+    Response error(HttpStatus status);
+
+    /**
+     * Returns an error response with the specified status and message.
+     *
+     * @param status
+     *     the HTTP error status.
+     * @param message
+     *     the client-visible error message.
+     * @return
+     *     the response.
+     */
+    Response error(HttpStatus status, String message);
+
+    /**
+     * Creates a {@code 200 OK} response builder containing arbitrary bytes
+     * with the {@code application/octet-stream} content type.
+     *
+     * @param data
+     *     the response body.
+     * @return
+     *     the response builder.
+     */
+    ResponseBuilder fromBytes(byte[] data);
+
+    /**
+     * Creates a fully custom response builder.
+     * <p>
+     * This is the only factory method that allows the status, content type,
+     * and body to be selected independently. Prefer a more specific factory
+     * method whenever one matches the response being created.
+     *
+     * @param status
+     *     the HTTP status.
+     * @param contentType
+     *     the content type.
+     * @param data
+     *     the response body.
+     * @return
+     *     the response builder.
+     */
+    ResponseBuilder custom(
+        HttpStatus status,
+        ContentType contentType,
+        byte[] data
+    );
+
+    /**
      * Creates a plain text response builder.
      *
      * @param value
@@ -85,6 +140,42 @@ public interface ResponseFactory {
      *     the response builder.
      */
     ResponseBuilder fromJson(String value);
+
+    /**
+     * Creates an XML response builder.
+     *
+     * @param value
+     *     the XML content.
+     * @return
+     *     the response builder.
+     */
+    ResponseBuilder fromXml(String value);
+
+    /**
+     * Creates a temporary redirect response builder.
+     *
+     * @param location
+     *     the redirect target.
+     * @return
+     *     the response builder.
+     * @throws ServerException
+     *     if the location cannot be used as a header value.
+     */
+    ResponseBuilder redirect(String location)
+        throws ServerException;
+
+    /**
+     * Creates a permanent redirect response builder.
+     *
+     * @param location
+     *     the redirect target.
+     * @return
+     *     the response builder.
+     * @throws ServerException
+     *     if the location cannot be used as a header value.
+     */
+    ResponseBuilder redirectPermanently(String location)
+        throws ServerException;
 
     /**
      * Creates a response containing the specified file.

@@ -299,6 +299,43 @@ return factory
 
 The appropriate `Content-Type` is selected automatically.
 
+### Status, Binary Data, and Content Types
+
+Factory methods fix the status, content type, and body when the builder is
+created. The builder can add headers and cookies, but cannot turn a text
+response into JSON or change its status.
+
+When no specific factory method fits, one explicit escape hatch accepts all
+three fundamental response properties:
+
+```java
+return factory
+    .custom(
+        HttpStatus.CREATED,
+        ContentType.APPLICATION_JSON,
+        "{\"id\":42}".getBytes(StandardCharsets.UTF_8)
+    )
+    .setHeader("Location", "/items/42")
+    .build();
+```
+
+Content types are selected through the `ContentType` enum. The enum covers
+common web documents, structured data, archives, office documents, fonts,
+images, audio, video, and 3D models, so misspelled media types cannot enter an
+outgoing response.
+
+Raw bytes can be returned without text conversion:
+
+```java
+return factory
+    .fromBytes(packet)
+    .build();
+```
+
+`fromBytes(byte[])` is always `200 OK` with
+`application/octet-stream`. Custom status or media-type combinations must use
+`custom(...)`, making the unsafe path deliberate and visible at the call site.
+
 ### Headers
 
 Additional response headers can be added before building the response:
@@ -310,7 +347,9 @@ return factory
     .build();
 ```
 
-Headers managed by the HTTP server itself, most notably `Content-Type` and `Content-Length`, do not need to be supplied by application code. The final content length is calculated from the actual response data.
+Headers managed by the HTTP server itself (`Content-Type`, `Content-Length`,
+and `Transfer-Encoding`) cannot be supplied through the builder. The final
+content length is calculated from the actual response data.
 
 ### Cookies
 
@@ -325,12 +364,41 @@ return factory
 
 This keeps cookie handling explicit without requiring application code to manually construct `Set-Cookie` headers.
 
+Cookie attributes are represented by `ResponseCookie`:
+
+```java
+final ResponseCookie cookie = new ResponseCookie.Builder(
+    "session",
+    sessionId
+)
+    .setPath("/")
+    .setMaxAge(Duration.ofHours(8))
+    .setSecure(true)
+    .setHttpOnly(true)
+    .setSameSite(SameSite.LAX)
+    .build();
+
+return factory
+    .fromText("Logged in")
+    .setCookie(cookie)
+    .build();
+```
+
+`ResponseCookie` validates itself when built and its `toString()` method
+returns the complete `Set-Cookie` header value.
+
 ### Standard Responses
 
 Common HTTP responses are available directly from the factory:
 
 ```java
 return factory.notFound();
+```
+
+Numeric status codes can be converted to their enum value when needed:
+
+```java
+final HttpStatus status = HttpStatus.fromCode(404);
 ```
 
 For an internal server error:
@@ -344,6 +412,21 @@ or, when an error is represented by a `ServerException`:
 ```java
 return factory.error(exception);
 ```
+
+An exception without a status is treated as an internal error. Its message is
+not exposed to the client. A handler can deliberately return an HTTP error by
+including a status:
+
+```java
+throw new ServerException(
+    HttpStatus.CONFLICT,
+    "Resource already exists"
+);
+```
+
+The server then returns `409 Conflict` and passes the supplied message to the
+configured error page. Request parsing errors similarly use protocol-specific
+statuses such as `400`, `413`, `431`, `501`, and `505`.
 
 The appearance of generated error pages can be customized through the server configuration without changing handler code.
 
