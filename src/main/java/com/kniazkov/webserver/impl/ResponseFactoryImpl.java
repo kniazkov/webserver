@@ -156,7 +156,10 @@ final class ResponseFactoryImpl implements ResponseFactory {
         return new ResponseBuilderImpl(
             HttpStatus.OK,
             ContentType.APPLICATION_OCTET_STREAM,
-            data
+            Objects.requireNonNull(
+                data,
+                "Response data must not be null"
+            )
         );
     }
 
@@ -166,14 +169,16 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public ResponseBuilder custom(
         final HttpStatus status,
-        final String contentType,
+        final ContentType contentType,
         final byte[] data
-    ) throws ServerException {
-        ResponseBuilderImpl.validateContentType(contentType);
+    ) {
         return new ResponseBuilderImpl(
             status,
             contentType,
-            data
+            Objects.requireNonNull(
+                data,
+                "Response data must not be null"
+            )
         );
     }
 
@@ -183,7 +188,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public ResponseBuilder fromText(final String value) {
         return text(
-            "text/plain; charset=UTF-8",
+            ContentType.TEXT_PLAIN,
             value
         );
     }
@@ -194,7 +199,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public ResponseBuilder fromHtml(final String value) {
         return text(
-            "text/html; charset=UTF-8",
+            ContentType.TEXT_HTML,
             value
         );
     }
@@ -205,7 +210,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public ResponseBuilder fromJson(final String value) {
         return text(
-            ContentType.APPLICATION_JSON.getValue(),
+            ContentType.APPLICATION_JSON,
             value
         );
     }
@@ -216,7 +221,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
     @Override
     public ResponseBuilder fromXml(final String value) {
         return text(
-            ContentType.APPLICATION_XML.getValue(),
+            ContentType.APPLICATION_XML,
             value
         );
     }
@@ -315,7 +320,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
 
         return new ResponseImpl(
             status,
-            "text/html; charset=UTF-8",
+            ContentType.TEXT_HTML,
             java.util.Map.of(),
             errorPage.create(
                 status.getCode(),
@@ -336,7 +341,7 @@ final class ResponseFactoryImpl implements ResponseFactory {
      *     the response builder.
      */
     private static ResponseBuilder text(
-        final String contentType,
+        final ContentType contentType,
         final String value
     ) {
         return new ResponseBuilderImpl(

@@ -4,6 +4,7 @@
 
 package com.kniazkov.webserver.impl;
 
+import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.Handler;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Options;
@@ -37,7 +38,7 @@ final class WorkerSimpleTest extends WorkerBaseTest {
                 .getResponseFactory()
                 .custom(
                     HttpStatus.CREATED,
-                    "application/vnd.example.packet",
+                    ContentType.APPLICATION_CBOR,
                     body
                 )
                 .build();
@@ -62,7 +63,7 @@ final class WorkerSimpleTest extends WorkerBaseTest {
                 response.statusLine().startsWith("HTTP/1.1 201")
             );
             assertEquals(
-                "application/vnd.example.packet",
+                "application/cbor",
                 response.header("Content-Type")
             );
             assertArrayEquals(

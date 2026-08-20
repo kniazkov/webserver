@@ -221,6 +221,28 @@ public enum HttpStatus {
     }
 
     /**
+     * Returns the HTTP status corresponding to a numeric status code.
+     *
+     * @param code
+     *     the numeric status code.
+     * @return
+     *     the corresponding HTTP status.
+     * @throws IllegalArgumentException
+     *     if the status code is not represented by this enum.
+     */
+    public static HttpStatus fromCode(final int code) {
+        for (HttpStatus status : values()) {
+            if (status.code == code) {
+                return status;
+            }
+        }
+
+        throw new IllegalArgumentException(
+            "Unsupported HTTP status code: " + code
+        );
+    }
+
+    /**
      * Returns whether this status permits a response body.
      *
      * @return

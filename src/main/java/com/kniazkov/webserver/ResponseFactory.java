@@ -99,19 +99,17 @@ public interface ResponseFactory {
      * @param status
      *     the HTTP status.
      * @param contentType
-     *     the complete Content-Type value.
+     *     the content type.
      * @param data
      *     the response body.
      * @return
      *     the response builder.
-     * @throws ServerException
-     *     if the content type is invalid.
      */
     ResponseBuilder custom(
         HttpStatus status,
-        String contentType,
+        ContentType contentType,
         byte[] data
-    ) throws ServerException;
+    );
 
     /**
      * Creates a plain text response builder.

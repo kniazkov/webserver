@@ -23,14 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class ResponseSerializerTest {
 
     /**
-     * Tests preserving a custom Content-Type value and raw bytes.
+     * Tests serializing a selected Content-Type and raw bytes.
      */
     @Test
-    void customContentType() throws Exception {
+    void selectedContentType() throws Exception {
         final Response response = new ResponseFactoryImpl()
             .custom(
                 HttpStatus.CREATED,
-                "application/vnd.example; version=2",
+                ContentType.APPLICATION_GEO_JSON,
                 new byte[]{0, (byte) 0xff}
             )
             .build();
@@ -50,7 +50,7 @@ final class ResponseSerializerTest {
         assertTrue(headers.startsWith("HTTP/1.1 201 Created\r\n"));
         assertTrue(
             headers.contains(
-                "Content-Type: application/vnd.example; version=2\r\n"
+                "Content-Type: application/geo+json\r\n"
             )
         );
         assertTrue(headers.contains("Content-Length: 2\r\n"));
@@ -66,7 +66,7 @@ final class ResponseSerializerTest {
         final Response response = new ResponseFactoryImpl()
             .custom(
                 HttpStatus.NO_CONTENT,
-                ContentType.APPLICATION_OCTET_STREAM.getValue(),
+                ContentType.APPLICATION_OCTET_STREAM,
                 new byte[0]
             )
             .build();

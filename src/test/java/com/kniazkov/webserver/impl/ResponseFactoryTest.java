@@ -52,7 +52,7 @@ final class ResponseFactoryTest {
         final Response response = factory
             .custom(
                 HttpStatus.CREATED,
-                "application/vnd.example.packet",
+                ContentType.APPLICATION_CBOR,
                 data
             )
             .setHeader("X-Request-Id", "123")
@@ -62,11 +62,7 @@ final class ResponseFactoryTest {
 
         assertEquals(HttpStatus.CREATED, response.getStatus());
         assertEquals(
-            "application/vnd.example.packet",
-            response.getContentTypeValue()
-        );
-        assertEquals(
-            ContentType.APPLICATION_OCTET_STREAM,
+            ContentType.APPLICATION_CBOR,
             response.getContentType()
         );
         assertEquals(
@@ -206,7 +202,7 @@ final class ResponseFactoryTest {
             () -> factory
                 .custom(
                     HttpStatus.NO_CONTENT,
-                    ContentType.TEXT_PLAIN.getValue(),
+                    ContentType.TEXT_PLAIN,
                     "Not allowed".getBytes(StandardCharsets.UTF_8)
                 )
                 .build()

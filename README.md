@@ -299,7 +299,7 @@ return factory
 
 The appropriate `Content-Type` is selected automatically.
 
-### Status, Binary Data, and Custom Media Types
+### Status, Binary Data, and Content Types
 
 Factory methods fix the status, content type, and body when the builder is
 created. The builder can add headers and cookies, but cannot turn a text
@@ -312,12 +312,17 @@ three fundamental response properties:
 return factory
     .custom(
         HttpStatus.CREATED,
-        "application/json",
+        ContentType.APPLICATION_JSON,
         "{\"id\":42}".getBytes(StandardCharsets.UTF_8)
     )
     .setHeader("Location", "/items/42")
     .build();
 ```
+
+Content types are selected through the `ContentType` enum. The enum covers
+common web documents, structured data, archives, office documents, fonts,
+images, audio, video, and 3D models, so misspelled media types cannot enter an
+outgoing response.
 
 Raw bytes can be returned without text conversion:
 
@@ -379,12 +384,21 @@ return factory
     .build();
 ```
 
+`ResponseCookie` validates itself when built and its `toString()` method
+returns the complete `Set-Cookie` header value.
+
 ### Standard Responses
 
 Common HTTP responses are available directly from the factory:
 
 ```java
 return factory.notFound();
+```
+
+Numeric status codes can be converted to their enum value when needed:
+
+```java
+final HttpStatus status = HttpStatus.fromCode(404);
 ```
 
 For an internal server error:

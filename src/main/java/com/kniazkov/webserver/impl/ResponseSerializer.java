@@ -87,7 +87,7 @@ final class ResponseSerializer {
             writeHeader(
                 output,
                 "Content-Type",
-                response.getContentTypeValue()
+                response.getContentType().getValue()
             );
 
             writeHeader(

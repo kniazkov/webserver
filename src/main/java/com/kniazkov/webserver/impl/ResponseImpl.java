@@ -19,7 +19,7 @@ final class ResponseImpl implements Response {
 
     private final HttpStatus status;
 
-    private final String contentType;
+    private final ContentType contentType;
 
     private final Map<String, List<String>> headers;
 
@@ -28,20 +28,6 @@ final class ResponseImpl implements Response {
     ResponseImpl(
         final HttpStatus status,
         final ContentType contentType,
-        final Map<String, List<String>> headers,
-        final byte[] data
-    ) {
-        this(
-            status,
-            contentType.getValue(),
-            headers,
-            data
-        );
-    }
-
-    ResponseImpl(
-        final HttpStatus status,
-        final String contentType,
         final Map<String, List<String>> headers,
         final byte[] data
     ) {
@@ -69,11 +55,6 @@ final class ResponseImpl implements Response {
 
     @Override
     public ContentType getContentType() {
-        return ContentType.fromString(contentType);
-    }
-
-    @Override
-    public String getContentTypeValue() {
         return contentType;
     }
 
