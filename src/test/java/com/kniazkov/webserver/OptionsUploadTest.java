@@ -7,6 +7,7 @@ package com.kniazkov.webserver;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests request upload storage options.
@@ -24,6 +25,8 @@ final class OptionsUploadTest {
             .setMaxHeaderSize(4096)
             .setMaxInMemoryBodySize(128)
             .setMaxFormSize(256)
+            .setMaxMultipartParts(12)
+            .setMaxMultipartHeaderSize(512)
             .build();
 
         assertEquals(1024, options.getMaxRequestSize());
@@ -31,5 +34,24 @@ final class OptionsUploadTest {
         assertEquals(4096, options.getMaxHeaderSize());
         assertEquals(128, options.getMaxInMemoryBodySize());
         assertEquals(256, options.getMaxFormSize());
+        assertEquals(12, options.getMaxMultipartParts());
+        assertEquals(512, options.getMaxMultipartHeaderSize());
+    }
+
+    /**
+     * Tests rejection of negative multipart metadata limits.
+     */
+    @Test
+    void negativeMultipartLimits() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new Options.Builder().setMaxMultipartParts(-1)
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new Options.Builder()
+                .setMaxMultipartHeaderSize(-1)
+        );
     }
 }
