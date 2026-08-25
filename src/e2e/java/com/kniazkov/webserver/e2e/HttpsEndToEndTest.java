@@ -6,12 +6,14 @@ package com.kniazkov.webserver.e2e;
 
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.SslOptions;
+import com.kniazkov.webserver.SslProtocol;
 
 import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Objects;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
@@ -36,12 +38,26 @@ final class HttpsEndToEndTest extends EndToEndBaseTest {
                 "Test certificate is missing"
             );
 
-            final SslOptions sslOptions = new SslOptions.Builder()
-                .setKeyStoreFile(
-                    Path.of(resource.toURI()).toFile()
-                )
-                .setPassword("test-password")
-                .build();
+            final char[] password = "test-password".toCharArray();
+            final SslOptions sslOptions;
+            try {
+                sslOptions = new SslOptions.Builder()
+                    .setKeyStoreFile(
+                        Path.of(resource.toURI()).toFile()
+                    )
+                    .setPassword(password)
+                    .setEnabledProtocols(
+                        SslProtocol.TLS_1_2,
+                        SslProtocol.TLS_1_3
+                    )
+                    .setCipherSuites(
+                        "TLS_AES_128_GCM_SHA256",
+                        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+                    )
+                    .build();
+            } finally {
+                Arrays.fill(password, '\0');
+            }
 
             builder
                 .setSslOptions(sslOptions)

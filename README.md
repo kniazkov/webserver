@@ -651,10 +651,16 @@ HTTPS can be enabled by providing an `SslOptions` instance in the server configu
 A typical configuration using a PKCS #12 key store looks like this:
 
 ```java
-final SslOptions sslOptions = new SslOptions.Builder()
-    .setKeyStoreFile("certificate.p12")
-    .setPassword("changeit")
-    .build();
+final char[] password = loadPassword();
+final SslOptions sslOptions;
+try {
+    sslOptions = new SslOptions.Builder()
+        .setKeyStoreFile("certificate.p12")
+        .setPassword(password)
+        .build();
+} finally {
+    Arrays.fill(password, '\0');
+}
 
 final Options options = new Options.Builder()
     .setPort(8443)
@@ -662,42 +668,69 @@ final Options options = new Options.Builder()
     .build();
 
 final Server server = Server.start(options);
-````
-
-`PKCS12` is the default key store type, and `TLS` is the default protocol, so they do not normally need to be specified explicitly.
-
-If necessary, they can be selected explicitly:
-
-```java
-final SslOptions sslOptions = new SslOptions.Builder()
-    .setKeyStoreFile("certificate.p12")
-    .setPassword("changeit")
-    .setKeyStoreType(KeyStoreType.PKCS12)
-    .setProtocol(SslProtocol.TLS)
-    .build();
 ```
 
-JKS key stores are also supported:
+Password methods accepting `char[]` make it possible for the application to clear its copy as soon as the options have been built. The builder keeps only defensive mutable copies and transfers them to the resulting immutable options. The older `String` overloads remain source-compatible but are deprecated because Java strings cannot be cleared from memory.
+
+`PKCS12` is the default key store type. JKS key stores are also supported:
 
 ```java
 final SslOptions sslOptions = new SslOptions.Builder()
     .setKeyStoreFile("server.jks")
-    .setPassword("changeit")
+    .setPassword(password)
     .setKeyStoreType(KeyStoreType.JKS)
     .build();
 ```
 
-If the private key and the key store use different passwords, they can be configured separately:
+If the private key and the key store use different passwords, configure them separately with `setKeyStorePassword(char[])` and `setKeyPassword(char[])`.
+
+The server can also load the usual PEM files directly. The certificate file may contain the complete X.509 chain. The private key must be an unencrypted PKCS #8 PEM key:
+
+```java
+final SslOptions sslOptions = new SslOptions.Builder()
+    .setCertificateChainFile("fullchain.pem")
+    .setPrivateKeyFile("private-key.pk8.pem")
+    .build();
+```
+
+Traditional PKCS #1 keys and encrypted PEM keys are deliberately rejected with a clear startup error. Convert a PKCS #1 key to the supported representation before deployment, or use a password-protected PKCS #12/JKS store when encryption at rest is required.
+
+By default, Java's TLS provider selects its enabled protocol versions and cipher suites. A deployment that requires a fixed policy can restrict both explicitly:
 
 ```java
 final SslOptions sslOptions = new SslOptions.Builder()
     .setKeyStoreFile("certificate.p12")
-    .setKeyStorePassword("store-password")
-    .setKeyPassword("key-password")
+    .setPassword(password)
+    .setEnabledProtocols(
+        SslProtocol.TLS_1_2,
+        SslProtocol.TLS_1_3
+    )
+    .setCipherSuites(
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+    )
     .build();
 ```
 
-`SslOptions.Builder.build()` verifies that the specified key store exists, is a regular file, and can be read. Problems with the actual key store contents, password, certificate, or TLS initialization are detected when the server starts.
+Protocol and cipher names are validated by JSSE when `Server.start()` creates the listener. An unsupported value fails startup instead of silently weakening or changing the requested policy. Explicit cipher lists should be reviewed when the JDK or deployment policy changes; leaving the lists unset follows the provider's maintained defaults.
+
+Mutual TLS is controlled independently from HTTPS server authentication. `OPTIONAL` asks for a client certificate when available, while `REQUIRED` rejects clients that do not present a trusted certificate. Enabling either mode requires an explicit client trust source:
+
+```java
+final SslOptions sslOptions = new SslOptions.Builder()
+    .setKeyStoreFile("certificate.p12")
+    .setPassword(serverPassword)
+    .setTrustCertificatesFile("client-ca-chain.pem")
+    .setClientAuthentication(SslClientAuthentication.REQUIRED)
+    .build();
+```
+
+Client trust can alternatively come from a PKCS #12 or JKS trust store through `setTrustStoreFile`, `setTrustStorePassword`, and `setTrustStoreType`. The JVM's ambient default trust store is never used to authorize client certificates: mTLS requires an explicit application choice.
+
+`SslOptions.Builder.build()` checks that all selected material exists, is a readable regular file, and that identity and trust sources are complete and unambiguous. Password, certificate, private-key, trust-store, protocol, cipher, and TLS initialization errors are reported by `Server.start()` with their security-specific cause included in the message.
+
+TLS protects request and response bytes in transit after a successful handshake. It does not authenticate application users, validate authorization rules, secure files or passwords on the host, make forwarded proxy headers trustworthy, or replace certificate rotation and endpoint hardening. When TLS terminates at a reverse proxy, bind this server to the intended private interface and enforce the public TLS policy at that proxy as well.
 
 If no `SslOptions` are supplied, the server uses ordinary HTTP. There is no separate HTTPS server API and no `sslEnabled` flag to keep synchronized with the actual configuration.
 

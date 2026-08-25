@@ -9,18 +9,17 @@ import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.ResponseFactory;
 import com.kniazkov.webserver.Server;
 import com.kniazkov.webserver.ServerException;
+import com.kniazkov.webserver.SslClientAuthentication;
 import com.kniazkov.webserver.SslOptions;
 
 import javax.net.ServerSocketFactory;
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.security.GeneralSecurityException;
-import java.security.KeyStore;
 import java.util.Objects;
 
 /**
@@ -232,50 +231,19 @@ public final class ServerImpl implements Server {
         final Options serverOptions,
         final SslOptions sslOptions
     ) throws ServerException {
-
-        final char[] storePassword =
-            sslOptions.getKeyStorePassword();
-
-        final char[] keyPassword =
-            sslOptions.getKeyPassword();
-
         try {
-            final KeyStore keyStore = KeyStore.getInstance(
-                sslOptions.getKeyStoreType().getValue()
-            );
-
-            try (
-                FileInputStream input =
-                    new FileInputStream(sslOptions.getKeyStoreFile())
-            ) {
-                keyStore.load(
-                    input,
-                    storePassword
-                );
-            }
-
-            final KeyManagerFactory keyManagerFactory =
-                KeyManagerFactory.getInstance(
-                    KeyManagerFactory.getDefaultAlgorithm()
-                );
-
-            keyManagerFactory.init(
-                keyStore,
-                keyPassword
-            );
-
             final SSLContext context =
                 SSLContext.getInstance(
                     sslOptions.getProtocol().getValue()
                 );
 
             context.init(
-                keyManagerFactory.getKeyManagers(),
-                null,
+                TlsMaterialLoader.loadKeyManagers(sslOptions),
+                TlsMaterialLoader.loadTrustManagers(sslOptions),
                 null
             );
 
-            return context
+            final SSLServerSocket socket = (SSLServerSocket) context
                 .getServerSocketFactory()
                 .createServerSocket(
                     serverOptions.getPort(),
@@ -283,28 +251,62 @@ public final class ServerImpl implements Server {
                     serverOptions.getBindAddress().orElse(null)
                 );
 
+            try {
+                configureSslServerSocket(socket, sslOptions);
+            } catch (IllegalArgumentException exception) {
+                close(socket);
+                throw new ServerException(
+                    "Invalid TLS listener policy: "
+                        + exception.getMessage(),
+                    exception
+                );
+            }
+            return socket;
         } catch (
             IOException
             | GeneralSecurityException exception
         ) {
             throw new ServerException(
-                "Cannot initialize SSL server",
+                "Cannot initialize SSL server: "
+                    + exception.getMessage(),
                 exception
             );
-        } finally {
-            clear(storePassword);
-            clear(keyPassword);
         }
     }
 
     /**
-     * Clears a password copy after it is no longer needed.
+     * Applies the configured TLS versions, cipher suites and client policy.
      *
-     * @param value
-     *     the password.
+     * @param socket
+     *     the SSL server socket.
+     * @param options
+     *     the SSL options.
      */
-    private static void clear(final char[] value) {
-        java.util.Arrays.fill(value, '\0');
+    private static void configureSslServerSocket(
+        final SSLServerSocket socket,
+        final SslOptions options
+    ) {
+        if (!options.getEnabledProtocols().isEmpty()) {
+            socket.setEnabledProtocols(
+                options.getEnabledProtocols()
+                    .stream()
+                    .map(value -> value.getValue())
+                    .toArray(String[]::new)
+            );
+        }
+        if (!options.getCipherSuites().isEmpty()) {
+            socket.setEnabledCipherSuites(
+                options.getCipherSuites().toArray(String[]::new)
+            );
+        }
+
+        final SslClientAuthentication authentication =
+            options.getClientAuthentication();
+        if (authentication == SslClientAuthentication.REQUIRED) {
+            socket.setNeedClientAuth(true);
+        } else if (authentication == SslClientAuthentication.OPTIONAL) {
+            socket.setWantClientAuth(true);
+        }
     }
 
     /**
