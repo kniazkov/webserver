@@ -14,7 +14,8 @@ public interface RequestPath {
     /**
      * Returns the complete request path.
      * <p>
-     * The returned path always starts with {@code /}.
+     * The returned path is percent-decoded using UTF-8, always starts with
+     * {@code /}, and preserves a trailing slash.
      *
      * @return
      *     the complete request path.
@@ -25,7 +26,8 @@ public interface RequestPath {
      * Returns the directory part of the request path.
      * <p>
      * The returned path always starts with {@code /} and does not include
-     * the file name.
+     * the file name. A request path ending in {@code /} is itself a directory
+     * path.
      *
      * @return
      *     the directory path.

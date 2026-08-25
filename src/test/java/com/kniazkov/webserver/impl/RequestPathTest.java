@@ -10,6 +10,8 @@ import com.kniazkov.webserver.ServerException;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -234,6 +236,124 @@ final class RequestPathTest {
     }
 
     /**
+     * Tests percent decoding with strict UTF-8.
+     */
+    @Test
+    void percentEncodedPath() throws ServerException {
+        final RequestPath path = RequestPathImpl.build(
+            "/documents/My%20caf%C3%A9.%74xt"
+        );
+
+        assertEquals(
+            "/documents/My café.txt",
+            path.getPath()
+        );
+        assertEquals("/documents/", path.getDirectory());
+        assertEquals("My café.txt", path.getFileName());
+        assertEquals("txt", path.getFileType());
+        assertEquals(ContentType.TEXT_PLAIN, path.getContentType());
+    }
+
+    /**
+     * Tests that path decoding is distinct from form decoding.
+     */
+    @Test
+    void pathEncodingRules() throws ServerException {
+        final RequestPath path = RequestPathImpl.build(
+            "/a+b%3F%23%252e.txt"
+        );
+
+        assertEquals("/a+b?#%2e.txt", path.getPath());
+        assertEquals("a+b?#%2e.txt", path.getFileName());
+    }
+
+    /**
+     * Tests rejection of malformed and non-UTF-8 percent encoding.
+     */
+    @Test
+    void invalidPercentEncoding() {
+        final List<String> invalid = List.of(
+            "/file%",
+            "/file%2",
+            "/file%GG",
+            "/file%C3%28",
+            "/file%C0%AF"
+        );
+
+        for (String path : invalid) {
+            assertThrows(
+                ServerException.class,
+                () -> RequestPathImpl.build(path),
+                path
+            );
+        }
+    }
+
+    /**
+     * Tests rejection of literal and percent-encoded traversal segments.
+     */
+    @Test
+    void traversalSegments() {
+        final List<String> invalid = List.of(
+            "/../secret.txt",
+            "/%2e%2e/secret.txt",
+            "/.%2e/secret.txt",
+            "/%2E./secret.txt",
+            "/safe/%2e/secret.txt",
+            "/safe/%2e%2e/secret.txt"
+        );
+
+        for (String path : invalid) {
+            assertThrows(
+                ServerException.class,
+                () -> RequestPathImpl.build(path),
+                path
+            );
+        }
+    }
+
+    /**
+     * Tests rejection of literal and percent-encoded path separators inside a
+     * segment.
+     */
+    @Test
+    void encodedSeparators() {
+        final List<String> invalid = List.of(
+            "/safe\\secret.txt",
+            "/safe%5csecret.txt",
+            "/safe%2Fsecret.txt"
+        );
+
+        for (String path : invalid) {
+            assertThrows(
+                ServerException.class,
+                () -> RequestPathImpl.build(path),
+                path
+            );
+        }
+    }
+
+    /**
+     * Tests rejection of control characters and non-ASCII literal data.
+     */
+    @Test
+    void invalidDecodedCharacters() {
+        final List<String> invalid = List.of(
+            "/file%00.txt",
+            "/file%0A.txt",
+            "/café.txt"
+        );
+
+        for (String path : invalid) {
+            assertThrows(
+                ServerException.class,
+                () -> RequestPathImpl.build(path),
+                path
+            );
+        }
+    }
+
+    /**
      * Tests a null path.
      */
     @Test
@@ -348,12 +468,18 @@ final class RequestPathTest {
      * Tests a path ending with a slash.
      */
     @Test
-    void directoryWithoutFile() {
-        assertThrows(
-            ServerException.class,
-            () -> RequestPathImpl.build(
-                "/images/"
-            )
+    void directoryWithoutFile() throws ServerException {
+        final RequestPath path = RequestPathImpl.build(
+            "/images/"
+        );
+
+        assertEquals("/images/", path.getPath());
+        assertEquals("/images/", path.getDirectory());
+        assertEquals("", path.getFileName());
+        assertEquals("", path.getFileType());
+        assertEquals(
+            ContentType.APPLICATION_OCTET_STREAM,
+            path.getContentType()
         );
     }
 }

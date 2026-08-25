@@ -10,9 +10,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,6 +78,26 @@ final class StaticFilesEndToEndTest extends EndToEndBaseTest {
             "Static text content",
             content
         );
+    }
+
+    /**
+     * Tests browser access to a percent-encoded UTF-8 static file name.
+     */
+    @Test
+    void encodedFileName() throws Exception {
+        writeFile(
+            "docs/hello world-café.txt",
+            "Encoded browser path"
+        );
+
+        startServer();
+
+        final var response = page.request().get(
+            url("/docs/hello%20world-caf%C3%A9.txt")
+        );
+
+        assertEquals(200, response.status());
+        assertEquals("Encoded browser path", response.text());
     }
 
     /**
@@ -148,6 +170,78 @@ final class StaticFilesEndToEndTest extends EndToEndBaseTest {
             .get(url("/private"));
 
         assertEquals(403, response.status());
+    }
+
+    /**
+     * Tests browser access to a directory path with a trailing slash.
+     */
+    @Test
+    void trailingSlashDirectoryIsForbidden() throws Exception {
+        Files.createDirectories(
+            wwwRoot.resolve("private")
+        );
+
+        startServer();
+
+        final var response = page.request()
+            .get(url("/private/"));
+
+        assertEquals(403, response.status());
+    }
+
+    /**
+     * Tests traversal and separator encodings against a real server.
+     */
+    @Test
+    void encodedTraversalIsRejected() throws Exception {
+        final Path outside = Files.createTempFile(
+            wwwRoot.getParent(),
+            "webserver-path-secret-",
+            ".txt"
+        );
+        final String marker = "Encoded traversal secret";
+
+        try {
+            Files.writeString(
+                outside,
+                marker,
+                StandardCharsets.UTF_8
+            );
+
+            startServer();
+
+            final String fileName = outside
+                .getFileName()
+                .toString();
+
+            final List<String> rejected = List.of(
+                "/%2e%2e/" + fileName,
+                "/.%2e/" + fileName,
+                "/%2e%2e%2F" + fileName,
+                "/safe%5c..%5c" + fileName
+            );
+
+            for (String target : rejected) {
+                final String response = rawRequest(target);
+
+                assertTrue(
+                    response.startsWith("HTTP/1.1 400 Bad Request"),
+                    target
+                );
+                assertFalse(response.contains(marker), target);
+            }
+
+            final String doubleEncoded = rawRequest(
+                "/%252e%252e/" + fileName
+            );
+
+            assertTrue(
+                doubleEncoded.startsWith("HTTP/1.1 404 Not Found")
+            );
+            assertFalse(doubleEncoded.contains(marker));
+        } finally {
+            Files.deleteIfExists(outside);
+        }
     }
 
     /**
@@ -281,6 +375,41 @@ final class StaticFilesEndToEndTest extends EndToEndBaseTest {
         } finally {
             Files.deleteIfExists(outside.resolve("secret.txt"));
             Files.deleteIfExists(outside);
+        }
+    }
+
+    /**
+     * Sends a raw request target without browser URL normalization.
+     *
+     * @param target
+     *     the request target.
+     * @return
+     *     the complete HTTP response.
+     * @throws Exception
+     *     if the connection cannot be completed.
+     */
+    private String rawRequest(final String target) throws Exception {
+        try (
+            Socket socket = new Socket(
+                "127.0.0.1",
+                getPort()
+            )
+        ) {
+            socket.setSoTimeout(2000);
+            socket.getOutputStream().write(
+                (
+                    "GET " + target + " HTTP/1.1\r\n"
+                        + "Host: localhost\r\n"
+                        + "Connection: close\r\n"
+                        + "\r\n"
+                ).getBytes(StandardCharsets.ISO_8859_1)
+            );
+            socket.getOutputStream().flush();
+
+            return new String(
+                socket.getInputStream().readAllBytes(),
+                StandardCharsets.ISO_8859_1
+            );
         }
     }
 }

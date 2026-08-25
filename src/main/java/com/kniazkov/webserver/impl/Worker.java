@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
@@ -261,9 +262,15 @@ final class Worker implements Runnable {
 
         final String path = request.getPath().getPath();
 
-        final Path resolved = root.resolve(
-            path.substring(1)
-        ).normalize();
+        final Path resolved;
+
+        try {
+            resolved = root.resolve(
+                path.substring(1)
+            ).normalize();
+        } catch (InvalidPathException exception) {
+            return responseFactory.notFound();
+        }
 
         if (!resolved.startsWith(root)) {
             return responseFactory.notFound();

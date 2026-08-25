@@ -191,10 +191,10 @@ The request path is available separately from query parameters:
 ```java
 final RequestPath path = request.getPath();
 
-final String fullPath = path.getFullPath();
-final String directory = path.getPath();
+final String fullPath = path.getPath();
+final String directory = path.getDirectory();
 final String fileName = path.getFileName();
-final String extension = path.getExtension();
+final String extension = path.getFileType();
 final ContentType contentType = path.getContentType();
 ````
 
@@ -205,6 +205,32 @@ For example, a request for:
 ```
 
 provides the path information independently from the query string. File extensions and their corresponding `ContentType` values are determined by the server.
+
+### Request Path Normalization
+
+The request path is decoded into one canonical application path before it is
+exposed through `RequestPath` or used for static-file lookup. The processing
+order is deliberately strict:
+
+1. The raw query string is separated from the raw path.
+2. Literal `/` characters divide the path into segments.
+3. Each segment is percent-decoded exactly once using strict UTF-8.
+4. The decoded segments are validated before the path is used.
+
+For example, `/documents/My%20File.txt` is exposed to a handler as
+`/documents/My File.txt`. A `+` in a path remains a literal plus; only query and
+form data use the convention that decodes `+` as a space.
+
+A trailing slash is preserved. Consequently, `/documents/` has the directory
+`/documents/` and an empty file name instead of being rejected or silently
+changed into `/documents`.
+
+Malformed percent encoding, invalid UTF-8, control characters, empty interior
+segments, and `.` or `..` segments are rejected with `400 Bad Request`.
+Percent-encoded `/` and `\` characters are also rejected rather than being
+allowed to change the path structure. Decoding happens only once, so a value
+such as `%252e%252e` becomes the literal segment `%2e%2e`, never a parent
+directory traversal.
 
 ### Query Parameters
 

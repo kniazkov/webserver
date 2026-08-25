@@ -93,6 +93,32 @@ final class RequestParserTest {
     }
 
     /**
+     * Tests that path and query components use their respective decoding
+     * rules.
+     */
+    @Test
+    void encodedPathAndQuery() throws ServerException {
+        final Request request = parse(
+            "GET /docs/My%20File+%3F.txt?term=a+b HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "\r\n"
+        );
+
+        assertEquals(
+            "/docs/My File+?.txt",
+            request.getPath().getPath()
+        );
+        assertEquals(
+            Map.of("term", List.of("a b")),
+            request.getQuery()
+        );
+        assertEquals(
+            "/docs/My%20File+%3F.txt?term=a+b",
+            request.getHeaders().getTarget()
+        );
+    }
+
+    /**
      * Tests parsing a URL-encoded POST request.
      */
     @Test
