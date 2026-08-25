@@ -4,8 +4,10 @@
 
 package com.kniazkov.webserver;
 
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Represents an HTTP response returned by a request handler.
@@ -30,6 +32,18 @@ public interface Response {
      *     the content type.
      */
     ContentType getContentType();
+
+    /**
+     * Returns the character set used to encode the response body, if known.
+     * <p>
+     * Raw byte and file responses do not declare a character set.
+     *
+     * @return
+     *     the body character set, or an empty optional for raw data.
+     */
+    default Optional<Charset> getCharset() {
+        return Optional.empty();
+    }
 
     /**
      * Returns the response headers.

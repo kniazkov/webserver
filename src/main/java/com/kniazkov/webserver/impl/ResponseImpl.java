@@ -8,9 +8,11 @@ import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Response;
 
+import java.nio.charset.Charset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Default immutable implementation of {@link Response}.
@@ -20,6 +22,8 @@ final class ResponseImpl implements Response {
     private final HttpStatus status;
 
     private final ContentType contentType;
+
+    private final Charset charset;
 
     private final Map<String, List<String>> headers;
 
@@ -31,8 +35,19 @@ final class ResponseImpl implements Response {
         final Map<String, List<String>> headers,
         final byte[] data
     ) {
+        this(status, contentType, headers, data, null);
+    }
+
+    ResponseImpl(
+        final HttpStatus status,
+        final ContentType contentType,
+        final Map<String, List<String>> headers,
+        final byte[] data,
+        final Charset charset
+    ) {
         this.status = status;
         this.contentType = contentType;
+        this.charset = charset;
 
         final Map<String, List<String>> copy =
             new LinkedHashMap<>();
@@ -56,6 +71,11 @@ final class ResponseImpl implements Response {
     @Override
     public ContentType getContentType() {
         return contentType;
+    }
+
+    @Override
+    public Optional<Charset> getCharset() {
+        return Optional.ofNullable(charset);
     }
 
     @Override

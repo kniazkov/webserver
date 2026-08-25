@@ -98,7 +98,7 @@ final class WorkerFileTest extends WorkerBaseTest {
                 )
             );
             assertEquals(
-                "text/html",
+                "text/html; charset=UTF-8",
                 response.header("Content-Type")
             );
         }
@@ -135,7 +135,7 @@ final class WorkerFileTest extends WorkerBaseTest {
                 )
             );
             assertEquals(
-                "text/html",
+                "text/html; charset=UTF-8",
                 response.header("Content-Type")
             );
         }

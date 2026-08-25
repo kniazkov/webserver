@@ -106,7 +106,7 @@ final class Worker implements Runnable {
                     return;
                 }
 
-                final boolean keepAlive;
+                final boolean keepAlive = isKeepAlive(request);
 
                 try {
                     final Response response = process(request);
@@ -114,10 +114,9 @@ final class Worker implements Runnable {
                     writeResponse(
                         output,
                         response,
-                        request.getHeaders().getVersion()
+                        request.getHeaders().getVersion(),
+                        keepAlive
                     );
-
-                    keepAlive = isKeepAlive(request);
                 } finally {
                     closeRequest(request);
                 }
@@ -279,16 +278,25 @@ final class Worker implements Runnable {
      *     the response.
      * @param version
      *     the HTTP version.
+     * @param keepAlive
+     *     whether the connection remains open after the response.
      * @throws IOException
      *     if writing fails.
+     * @throws ServerException
+     *     if the response contains invalid application headers.
      */
     private static void writeResponse(
         final OutputStream output,
         final Response response,
-        final HttpVersion version
-    ) throws IOException {
+        final HttpVersion version,
+        final boolean keepAlive
+    ) throws IOException, ServerException {
         output.write(
-            ResponseSerializer.serialize(response, version)
+            ResponseSerializer.serialize(
+                response,
+                version,
+                keepAlive
+            )
         );
         output.flush();
     }
@@ -304,16 +312,19 @@ final class Worker implements Runnable {
      *     the HTTP version.
      * @throws IOException
      *     if writing fails.
+     * @throws ServerException
+     *     if the generated response is invalid.
      */
     private void writeError(
         final OutputStream output,
         final ServerException exception,
         final HttpVersion version
-    ) throws IOException {
+    ) throws IOException, ServerException {
         writeResponse(
             output,
             responseFactory.error(exception),
-            version
+            version,
+            false
         );
     }
 
@@ -344,11 +355,12 @@ final class Worker implements Runnable {
         final List<String> values =
             request.getHeaders().getValues().get("Connection");
 
-        if (request.getHeaders().getVersion() == HttpVersion.HTTP_1_1) {
-            return !containsToken(values, "close");
+        if (containsToken(values, "close")) {
+            return false;
         }
 
-        return containsToken(values, "keep-alive");
+        return request.getHeaders().getVersion() == HttpVersion.HTTP_1_1
+            || containsToken(values, "keep-alive");
     }
 
     /**

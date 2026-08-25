@@ -17,7 +17,8 @@ public interface ResponseBuilder {
      * <p>
      * If the header already exists, the value is added to its existing
      * values.
-     * Server-managed entity headers cannot be added.
+     * Server-managed framing, representation, and hop-by-hop headers cannot
+     * be added.
      *
      * @param name
      *     the header name.
@@ -35,7 +36,8 @@ public interface ResponseBuilder {
 
     /**
      * Replaces all values of an HTTP response header.
-     * Server-managed entity headers cannot be replaced.
+     * Server-managed framing, representation, and hop-by-hop headers cannot
+     * be replaced.
      *
      * @param name
      *     the header name.

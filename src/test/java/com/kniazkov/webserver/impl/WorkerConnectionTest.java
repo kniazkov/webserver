@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests connection management and persistent HTTP connections handled by
@@ -59,6 +60,7 @@ final class WorkerConnectionTest extends WorkerBaseTest {
                 first.statusLine()
             );
             assertEquals("Response 1", first.text());
+            assertNull(first.header("Connection"));
 
             send(
                 socket,
@@ -75,6 +77,7 @@ final class WorkerConnectionTest extends WorkerBaseTest {
                 second.statusLine()
             );
             assertEquals("Response 2", second.text());
+            assertEquals("close", second.header("Connection"));
 
             connection.worker().join(TIMEOUT);
 
@@ -138,7 +141,10 @@ final class WorkerConnectionTest extends WorkerBaseTest {
                     + "\r\n"
             );
 
-            readResponse(connection.socket());
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertEquals("close", response.header("Connection"));
 
             connection.worker().join(TIMEOUT);
 
@@ -164,7 +170,10 @@ final class WorkerConnectionTest extends WorkerBaseTest {
                     + "\r\n"
             );
 
-            readResponse(connection.socket());
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertEquals("close", response.header("Connection"));
 
             connection.worker().join(TIMEOUT);
 
@@ -199,9 +208,13 @@ final class WorkerConnectionTest extends WorkerBaseTest {
                     + "\r\n"
             );
 
+            final TestResponse first =
+                readResponse(connection.socket());
+
+            assertEquals("/first", first.text());
             assertEquals(
-                "/first",
-                readResponse(connection.socket()).text()
+                "keep-alive",
+                first.header("Connection")
             );
 
             send(
@@ -211,10 +224,36 @@ final class WorkerConnectionTest extends WorkerBaseTest {
                     + "\r\n"
             );
 
-            assertEquals(
-                "/second",
-                readResponse(connection.socket()).text()
+            final TestResponse second =
+                readResponse(connection.socket());
+
+            assertEquals("/second", second.text());
+            assertEquals("close", second.header("Connection"));
+        }
+    }
+
+    /**
+     * Tests that the close option takes precedence over keep-alive.
+     */
+    @Test
+    void connectionCloseTakesPrecedence() throws Exception {
+        final Options options = options();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET / HTTP/1.0\r\n"
+                    + "Connection: keep-alive, close\r\n"
+                    + "\r\n"
             );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertEquals("close", response.header("Connection"));
+
+            connection.worker().join(TIMEOUT);
+            assertFalse(connection.worker().isAlive());
         }
     }
 
