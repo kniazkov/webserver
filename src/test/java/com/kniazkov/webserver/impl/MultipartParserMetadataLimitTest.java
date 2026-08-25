@@ -146,7 +146,7 @@ final class MultipartParserMetadataLimitTest
                 + "\r\n";
 
         final Options options = new Options.Builder()
-            .setMaxMultipartHeaderSize(bytes(headers))
+            .setMaxMultipartHeaderSize(asciiLength(headers))
             .build();
 
         final Request request = parse(
@@ -170,7 +170,7 @@ final class MultipartParserMetadataLimitTest
                 + "\r\n";
 
         final Options options = new Options.Builder()
-            .setMaxMultipartHeaderSize(bytes(headers) - 1)
+            .setMaxMultipartHeaderSize(asciiLength(headers) - 1)
             .build();
 
         assertPayloadTooLarge(
@@ -235,7 +235,7 @@ final class MultipartParserMetadataLimitTest
      * @return
      *     the byte length.
      */
-    private static int bytes(final String value) {
+    private static int asciiLength(final String value) {
         return value.getBytes(StandardCharsets.US_ASCII).length;
     }
 
