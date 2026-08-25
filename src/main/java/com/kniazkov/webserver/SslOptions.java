@@ -254,6 +254,13 @@ public final class SslOptions {
         return value;
     }
 
+    /** Returns an optional defensive copy of a password. */
+    private static Optional<char[]> copy(final char[] value) {
+        return value == null
+            ? Optional.empty()
+            : Optional.of(value.clone());
+    }
+
     /**
      * Builds SSL/TLS configuration options.
      */
