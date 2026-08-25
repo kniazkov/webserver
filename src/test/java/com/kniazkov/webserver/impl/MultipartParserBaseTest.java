@@ -72,6 +72,28 @@ abstract class MultipartParserBaseTest {
      */
     protected static Request parse(final String body, final Options options)
         throws ServerException {
+        return parse(body, BOUNDARY, options);
+    }
+
+    /**
+     * Parses multipart data with an explicit boundary and options.
+     *
+     * @param body
+     *     the multipart body.
+     * @param boundary
+     *     the multipart boundary.
+     * @param options
+     *     the parser options.
+     * @return
+     *     the resulting request.
+     * @throws ServerException
+     *     if parsing fails.
+     */
+    protected static Request parse(
+        final String body,
+        final String boundary,
+        final Options options
+    ) throws ServerException {
         final MemoryUploadedData data = new MemoryUploadedData(
             body.getBytes(StandardCharsets.UTF_8)
         );
@@ -84,7 +106,7 @@ abstract class MultipartParserBaseTest {
         MultipartParser.parse(
             new StringByteSource(body),
             data,
-            BOUNDARY,
+            boundary,
             options,
             builder
         );

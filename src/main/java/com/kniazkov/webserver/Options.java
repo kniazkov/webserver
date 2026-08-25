@@ -53,6 +53,17 @@ public final class Options {
         1024L * 1024L;
 
     /**
+     * The default maximum number of multipart parts.
+     */
+    private static final int DEFAULT_MAX_MULTIPART_PARTS = 1000;
+
+    /**
+     * The default maximum header size of one multipart part, in bytes.
+     */
+    private static final long DEFAULT_MAX_MULTIPART_HEADER_SIZE =
+        16L * 1024L;
+
+    /**
      * The default maximum HTTP header section size, in bytes.
      */
     private static final long DEFAULT_MAX_HEADER_SIZE =
@@ -106,6 +117,16 @@ public final class Options {
     private final long maxFormSize;
 
     /**
+     * The maximum number of multipart parts.
+     */
+    private final int maxMultipartParts;
+
+    /**
+     * The maximum header size of one multipart part, in bytes.
+     */
+    private final long maxMultipartHeaderSize;
+
+    /**
      * The maximum HTTP header section size, in bytes.
      */
     private final long maxHeaderSize;
@@ -154,6 +175,8 @@ public final class Options {
         maxRequestSize = builder.maxRequestSize;
         maxInMemoryBodySize = builder.maxInMemoryBodySize;
         maxFormSize = builder.maxFormSize;
+        maxMultipartParts = builder.maxMultipartParts;
+        maxMultipartHeaderSize = builder.maxMultipartHeaderSize;
         maxWorkers = builder.maxWorkers;
         readTimeout = builder.readTimeout;
         handlerTimeout = builder.handlerTimeout;
@@ -222,6 +245,28 @@ public final class Options {
      */
     public long getMaxFormSize() {
         return maxFormSize;
+    }
+
+    /**
+     * Returns the maximum number of parts in a multipart request body.
+     *
+     * @return
+     *     the multipart part count limit.
+     */
+    public int getMaxMultipartParts() {
+        return maxMultipartParts;
+    }
+
+    /**
+     * Returns the maximum header size of one multipart part.
+     * <p>
+     * The limit includes the terminating empty line.
+     *
+     * @return
+     *     the per-part header limit, in bytes.
+     */
+    public long getMaxMultipartHeaderSize() {
+        return maxMultipartHeaderSize;
     }
 
     /**
@@ -331,6 +376,17 @@ public final class Options {
          * The maximum decoded form data size, in bytes.
          */
         private long maxFormSize = DEFAULT_MAX_FORM_SIZE;
+
+        /**
+         * The maximum number of multipart parts.
+         */
+        private int maxMultipartParts = DEFAULT_MAX_MULTIPART_PARTS;
+
+        /**
+         * The maximum header size of one multipart part, in bytes.
+         */
+        private long maxMultipartHeaderSize =
+            DEFAULT_MAX_MULTIPART_HEADER_SIZE;
 
         /**
          * The maximum HTTP header section size, in bytes.
@@ -506,6 +562,50 @@ public final class Options {
             }
 
             maxFormSize = value;
+            return this;
+        }
+
+        /**
+         * Sets the maximum number of parts in a multipart request body.
+         *
+         * @param value
+         *     the multipart part count limit.
+         * @return
+         *     this builder.
+         * @throws IllegalArgumentException
+         *     if the value is negative.
+         */
+        public Builder setMaxMultipartParts(final int value) {
+            if (value < 0) {
+                throw new IllegalArgumentException(
+                    "Maximum multipart part count must not be negative"
+                );
+            }
+
+            maxMultipartParts = value;
+            return this;
+        }
+
+        /**
+         * Sets the maximum header size of one multipart part.
+         * <p>
+         * The limit includes the terminating empty line.
+         *
+         * @param value
+         *     the per-part header limit, in bytes.
+         * @return
+         *     this builder.
+         * @throws IllegalArgumentException
+         *     if the value is negative.
+         */
+        public Builder setMaxMultipartHeaderSize(final long value) {
+            if (value < 0) {
+                throw new IllegalArgumentException(
+                    "Maximum multipart header size must not be negative"
+                );
+            }
+
+            maxMultipartHeaderSize = value;
             return this;
         }
 

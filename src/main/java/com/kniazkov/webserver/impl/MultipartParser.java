@@ -19,6 +19,16 @@ import java.util.Map;
 final class MultipartParser {
 
     /**
+     * The maximum multipart boundary length defined by RFC 2046.
+     */
+    private static final int MAX_BOUNDARY_LENGTH = 70;
+
+    /**
+     * Non-alphanumeric characters permitted in a multipart boundary.
+     */
+    private static final String BOUNDARY_SYMBOLS = "'()+_,-./:=?";
+
+    /**
      * The byte source.
      */
     private final ByteSource source;
@@ -57,6 +67,16 @@ final class MultipartParser {
      * The total number of decoded form field bytes.
      */
     private long formSize;
+
+    /**
+     * The number of parsed multipart parts.
+     */
+    private int partCount;
+
+    /**
+     * The number of bytes in the current part header section.
+     */
+    private long partHeaderSize;
 
     /**
      * Creates a multipart parser.
@@ -110,9 +130,7 @@ final class MultipartParser {
         final Options options,
         final RequestBuilder builder
     ) throws ServerException {
-        if (boundary == null || boundary.isEmpty()) {
-            throw new ServerException("Multipart boundary is missing");
-        }
+        validateBoundary(boundary);
 
         new MultipartParser(
             source,
@@ -133,6 +151,9 @@ final class MultipartParser {
         readInitialBoundary();
 
         while (true) {
+            requirePartCapacity();
+            partCount++;
+
             final PartHeaders headers = readPartHeaders();
             final PartData part = readPartData(
                 headers.filename != null
@@ -194,6 +215,7 @@ final class MultipartParser {
      */
     private PartHeaders readPartHeaders() throws ServerException {
         final Map<String, String> headers = new LinkedHashMap<>();
+        partHeaderSize = 0;
 
         while (true) {
             final String line = readLine();
@@ -465,7 +487,7 @@ final class MultipartParser {
         final StringBuilder builder = new StringBuilder();
 
         while (true) {
-            final int value = read();
+            final int value = readPartHeaderByte();
 
             if (value == -1) {
                 throw new ServerException(
@@ -480,12 +502,60 @@ final class MultipartParser {
             }
 
             if (value == Lexer.CR) {
-                require(Lexer.LF);
+                if (readPartHeaderByte() != Lexer.LF) {
+                    throw new ServerException(
+                        "Invalid multipart data"
+                    );
+                }
+
                 return builder.toString();
             }
 
             builder.append((char) value);
         }
+    }
+
+    /**
+     * Checks whether another multipart part may be parsed.
+     *
+     * @throws ServerException
+     *     if the configured part count limit is exhausted.
+     */
+    private void requirePartCapacity() throws ServerException {
+        if (partCount >= options.getMaxMultipartParts()) {
+            throw new ServerException(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Maximum multipart part count exceeded"
+            );
+        }
+    }
+
+    /**
+     * Reads one byte belonging to a multipart part header section.
+     *
+     * @return
+     *     the next byte, or {@code -1} at the end of the body.
+     * @throws ServerException
+     *     if reading fails or the header limit is exceeded.
+     */
+    private int readPartHeaderByte() throws ServerException {
+        final int value = read();
+
+        if (value >= 0) {
+            partHeaderSize++;
+
+            if (
+                partHeaderSize
+                    > options.getMaxMultipartHeaderSize()
+            ) {
+                throw new ServerException(
+                    HttpStatus.PAYLOAD_TOO_LARGE,
+                    "Maximum multipart header size exceeded"
+                );
+            }
+        }
+
+        return value;
     }
 
     /**
@@ -659,6 +729,62 @@ final class MultipartParser {
         }
 
         return result;
+    }
+
+    /**
+     * Validates a multipart boundary according to RFC 2046.
+     *
+     * @param value
+     *     the boundary value without surrounding quotes.
+     * @throws ServerException
+     *     if the boundary is missing or invalid.
+     */
+    private static void validateBoundary(final String value)
+        throws ServerException {
+        if (value == null || value.isEmpty()) {
+            throw new ServerException(
+                "Multipart boundary is missing"
+            );
+        }
+
+        if (value.length() > MAX_BOUNDARY_LENGTH) {
+            throw new ServerException(
+                "Multipart boundary is longer than 70 characters"
+            );
+        }
+
+        for (int index = 0; index < value.length(); index++) {
+            final char ch = value.charAt(index);
+
+            if (
+                ch == ' '
+                    && index < value.length() - 1
+            ) {
+                continue;
+            }
+
+            if (!isBoundaryCharacter(ch)) {
+                throw new ServerException(
+                    "Multipart boundary contains invalid characters"
+                );
+            }
+        }
+    }
+
+    /**
+     * Returns whether a character may appear in a multipart boundary and is
+     * not whitespace.
+     *
+     * @param value
+     *     the character.
+     * @return
+     *     whether the character is permitted.
+     */
+    private static boolean isBoundaryCharacter(final char value) {
+        return value >= '0' && value <= '9'
+            || value >= 'A' && value <= 'Z'
+            || value >= 'a' && value <= 'z'
+            || BOUNDARY_SYMBOLS.indexOf(value) >= 0;
     }
 
     /**

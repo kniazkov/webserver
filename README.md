@@ -546,6 +546,11 @@ additional copies. Temporary storage and all opened streams are released after
 the handler finishes, so uploaded data must be consumed or copied during the
 handler call.
 
+Multipart metadata is bounded independently from file and form contents.
+`maxMultipartParts` limits the number of fields and files in one request, while
+`maxMultipartHeaderSize` limits the header section of each part. Boundary
+values are validated against the RFC 2046 grammar and its 70-character limit.
+
 ## Working with Cookies
 
 Cookies received from the client are parsed automatically and exposed through the `Request` object:
@@ -683,6 +688,8 @@ The main configuration options include:
 | `maxFileSize`             | Maximum size of an individual uploaded file                 |
 | `maxInMemoryBodySize`     | Largest declared body stored in memory                      |
 | `maxFormSize`             | Maximum decoded non-file form data                          |
+| `maxMultipartParts`       | Maximum number of multipart fields and files                |
+| `maxMultipartHeaderSize`  | Maximum header size of each multipart part                  |
 | `maxHeaderSize`           | Maximum size of HTTP headers                                |
 | `maxWorkers`              | Maximum number of client connections processed concurrently |
 | `readTimeout`             | Maximum time the server waits for additional request data   |
@@ -699,6 +706,8 @@ final Options options = new Options.Builder()
     .setMaxFileSize(128 * 1024 * 1024)
     .setMaxInMemoryBodySize(64 * 1024)
     .setMaxFormSize(1024 * 1024)
+    .setMaxMultipartParts(1000)
+    .setMaxMultipartHeaderSize(16 * 1024)
     .build();
 ```
 
