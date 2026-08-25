@@ -72,6 +72,40 @@ final class WorkerFileTest extends WorkerBaseTest {
     }
 
     /**
+     * Tests serving a static file whose name is percent-encoded UTF-8.
+     */
+    @Test
+    void encodedFileName() throws Exception {
+        Files.writeString(
+            root.resolve("hello world-café.txt"),
+            "Encoded file name",
+            StandardCharsets.UTF_8
+        );
+
+        final Options options = new Options.Builder()
+            .setWwwRoot(root.toString())
+            .build();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET /hello%20world-caf%C3%A9.txt HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 200")
+            );
+            assertEquals("Encoded file name", response.text());
+        }
+    }
+
+    /**
      * Tests requesting a static file that does not exist.
      */
     @Test
@@ -137,6 +171,36 @@ final class WorkerFileTest extends WorkerBaseTest {
             assertEquals(
                 "text/html; charset=UTF-8",
                 response.header("Content-Type")
+            );
+        }
+    }
+
+    /**
+     * Tests that a trailing slash is accepted and preserves directory
+     * semantics for static content.
+     */
+    @Test
+    void trailingSlashDirectoryIsForbidden() throws Exception {
+        Files.createDirectory(root.resolve("private"));
+
+        final Options options = new Options.Builder()
+            .setWwwRoot(root.toString())
+            .build();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET /private/ HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 403")
             );
         }
     }
