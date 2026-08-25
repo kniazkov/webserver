@@ -19,13 +19,14 @@ import org.junit.jupiter.api.function.Executable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Tests integration between components used by {@link RequestParser}.
@@ -406,6 +407,142 @@ final class RequestParserTest {
     }
 
     /**
+     * Tests that Content-Length follows the strict decimal grammar rather
+     * than the more permissive Java signed-integer grammar.
+     */
+    @Test
+    void nonDecimalContentLength() {
+        final List<String> invalid = List.of(
+            "",
+            "+5",
+            "-0",
+            "5.0",
+            "0x5",
+            "5, 5",
+            "9223372036854775808"
+        );
+
+        for (String value : invalid) {
+            assertThrows(
+                ServerException.class,
+                () -> parse(
+                    "POST / HTTP/1.1\r\n"
+                        + "Host: localhost\r\n"
+                        + "Content-Length: " + value + "\r\n"
+                        + "\r\n"
+                ),
+                value
+            );
+        }
+    }
+
+    /**
+     * Tests rejection of ambiguous request framing used by request-smuggling
+     * attacks.
+     */
+    @Test
+    void contentLengthWithTransferEncoding() {
+        final ServerException exception = assertThrows(
+            ServerException.class,
+            () -> parse(
+                "POST / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Content-Length: 4\r\n"
+                    + "Transfer-Encoding: chunked\r\n"
+                    + "\r\n"
+                    + "0\r\n\r\n"
+            )
+        );
+
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            exception.getStatus().orElseThrow()
+        );
+    }
+
+    /**
+     * Tests requesting an interim response before sending a request body.
+     */
+    @Test
+    void expectContinue() throws Exception {
+        final AtomicBoolean continued = new AtomicBoolean();
+
+        final Request request = RequestParser.parse(
+            new StringByteSource(
+                "POST / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Content-Length: 5\r\n"
+                    + "Expect: 100-Continue\r\n"
+                    + "\r\n"
+                    + "hello"
+            ),
+            OPTIONS,
+            () -> continued.set(true)
+        );
+
+        assertTrue(continued.get());
+        assertArrayEquals(
+            bytes("hello"),
+            request.getBody().readAllBytes()
+        );
+    }
+
+    /**
+     * Tests that a rejected request does not receive an interim response that
+     * would invite the client to transmit an oversized body.
+     */
+    @Test
+    void oversizedExpectationIsNotContinued() {
+        final AtomicBoolean continued = new AtomicBoolean();
+        final Options options = new Options.Builder()
+            .setMaxHeaderSize(256)
+            .setMaxRequestSize(128)
+            .build();
+
+        final ServerException exception = assertThrows(
+            ServerException.class,
+            () -> RequestParser.parse(
+                new StringByteSource(
+                    "POST / HTTP/1.1\r\n"
+                        + "Host: localhost\r\n"
+                        + "Content-Length: 1024\r\n"
+                        + "Expect: 100-continue\r\n"
+                        + "\r\n"
+                ),
+                options,
+                () -> continued.set(true)
+            )
+        );
+
+        assertEquals(
+            HttpStatus.PAYLOAD_TOO_LARGE,
+            exception.getStatus().orElseThrow()
+        );
+        assertFalse(continued.get());
+    }
+
+    /**
+     * Tests rejection of an unsupported request expectation.
+     */
+    @Test
+    void unsupportedExpectation() {
+        final ServerException exception = assertThrows(
+            ServerException.class,
+            () -> parse(
+                "GET / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Expect: diagnostic-feature\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertEquals(
+            HttpStatus.EXPECTATION_FAILED,
+            exception.getStatus().orElseThrow()
+        );
+    }
+
+    /**
      * Tests rejection of a body shorter than Content-Length.
      */
     @Test
@@ -574,6 +711,26 @@ final class RequestParserTest {
         );
 
         assertClientError(
+            HttpStatus.NOT_IMPLEMENTED,
+            "Unsupported HTTP method: get",
+            () -> parse(
+                "get / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertClientError(
+            HttpStatus.BAD_REQUEST,
+            "Invalid HTTP method: G@T",
+            () -> parse(
+                "G@T / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertClientError(
             HttpStatus.HTTP_VERSION_NOT_SUPPORTED,
             "Unsupported HTTP version: HTTP/9.9-DIAGNOSTIC",
             () -> parse(
@@ -590,6 +747,17 @@ final class RequestParserTest {
                 "POST / HTTP/1.1\r\n"
                     + "Host: localhost\r\n"
                     + "Transfer-Encoding: chunked\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertClientError(
+            HttpStatus.EXPECTATION_FAILED,
+            "Unsupported request expectation",
+            () -> parse(
+                "GET / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Expect: diagnostic-feature\r\n"
                     + "\r\n"
             )
         );

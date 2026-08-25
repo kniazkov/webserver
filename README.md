@@ -938,6 +938,10 @@ Persistent connection behavior follows the version of the incoming request: HTTP
 
 The server supports ordinary HTTP requests including `GET` and `POST`.
 
+Method names are parsed as case-sensitive HTTP tokens. A valid but unsupported
+method receives `501 Not Implemented`; malformed method syntax receives
+`400 Bad Request`.
+
 `GET` requests can contain URL query parameters:
 
 ```http
@@ -949,6 +953,11 @@ GET /search?q=java HTTP/1.1
 ### Request Bodies
 
 Request bodies with a known content length are read according to the `Content-Length` header. The server respects the exact request boundary, which is particularly important for persistent connections where another HTTP request may immediately follow the current request body. Every body is exposed as `UploadedData`; small bodies use memory and larger bodies use temporary-file storage according to `maxInMemoryBodySize`.
+
+`Content-Length` accepts decimal digits only. Requests that combine it with
+`Transfer-Encoding` are rejected as ambiguous, and unsupported transfer
+codings receive `501 Not Implemented`. HTTP/1.1 clients may use
+`Expect: 100-continue`; other expectations receive `417 Expectation Failed`.
 
 URL-encoded form data is parsed automatically:
 
