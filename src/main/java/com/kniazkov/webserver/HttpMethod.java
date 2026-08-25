@@ -4,8 +4,6 @@
 
 package com.kniazkov.webserver;
 
-import java.util.Locale;
-
 /**
  * Represents an HTTP request method supported by the web server.
  */
@@ -56,17 +54,53 @@ public enum HttpMethod {
      * @throws ServerException
      *     if the specified method is not supported.
      */
-    public static HttpMethod fromString(final String value) throws ServerException {
-        final String normalized = value.trim().toUpperCase(Locale.ENGLISH);
+    public static HttpMethod fromString(final String value)
+        throws ServerException {
         for (HttpMethod method : values()) {
-            if (method.text.equals(normalized)) {
+            if (method.text.equals(value)) {
                 return method;
             }
         }
+
+        if (!isToken(value)) {
+            throw new ServerException(
+                "Invalid HTTP method: " + value
+            );
+        }
+
         throw new ServerException(
             HttpStatus.NOT_IMPLEMENTED,
             "Unsupported HTTP method: " + value
         );
+    }
+
+    /**
+     * Returns whether a value is a non-empty HTTP token.
+     *
+     * @param value
+     *     the value.
+     * @return
+     *     {@code true} if the value is a valid token.
+     */
+    private static boolean isToken(final String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+
+        for (int index = 0; index < value.length(); index++) {
+            final char ch = value.charAt(index);
+
+            if (
+                !(ch >= '0' && ch <= '9')
+                    && !(ch >= 'A' && ch <= 'Z')
+                    && !(ch >= 'a' && ch <= 'z')
+                    && "!#$%&'*+-.^_`|~".indexOf(ch) < 0
+            ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

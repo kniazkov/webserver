@@ -17,6 +17,7 @@ import com.kniazkov.webserver.ServerException;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
@@ -38,6 +39,14 @@ import java.util.concurrent.TimeoutException;
  * to subsequent HTTP requests.
  */
 final class Worker implements Runnable {
+
+    /**
+     * The complete HTTP/1.1 continue interim response.
+     */
+    private static final byte[] CONTINUE_RESPONSE =
+        "HTTP/1.1 100 Continue\r\n\r\n".getBytes(
+            StandardCharsets.ISO_8859_1
+        );
 
     /**
      * The client socket.
@@ -99,7 +108,11 @@ final class Worker implements Runnable {
                 final Request request;
 
                 try {
-                    request = RequestParser.parse(source, options);
+                    request = RequestParser.parse(
+                        source,
+                        options,
+                        () -> writer.write(CONTINUE_RESPONSE)
+                    );
                 } catch (ConnectionClosedException exception) {
                     return;
                 } catch (ConnectionTimeoutException exception) {

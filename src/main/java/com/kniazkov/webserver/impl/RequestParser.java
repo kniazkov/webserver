@@ -39,6 +39,11 @@ final class RequestParser {
     private final RequestBuilder builder;
 
     /**
+     * Sends an interim response before the request body is read.
+     */
+    private final ContinueSender continueSender;
+
+    /**
      * The parsed request headers.
      */
     private RequestHeaders headers;
@@ -49,16 +54,32 @@ final class RequestParser {
     private StoredUploadedData body;
 
     /**
+     * The validated request body length.
+     */
+    private long contentLength;
+
+    /**
+     * Whether the client requested an interim continue response.
+     */
+    private boolean continueExpected;
+
+    /**
      * Creates a request parser.
      *
-     * @param source  the byte source.
-     * @param options the server options.
+     * @param source
+     *     the byte source.
+     * @param options
+     *     the server options.
+     * @param continueSender
+     *     the interim response sender.
      */
     private RequestParser(
         final ByteSource source,
-        final Options options
+        final Options options,
+        final ContinueSender continueSender
     ) {
         this.options = options;
+        this.continueSender = continueSender;
         this.source = new RequestByteSource(
             source,
             options.getMaxRequestSize()
@@ -79,7 +100,42 @@ final class RequestParser {
         final Options options
     ) throws ServerException {
         try {
-            return new RequestParser(source, options).parse();
+            return parse(source, options, () -> { });
+        } catch (IOException exception) {
+            throw new ServerException(
+                "Cannot send interim response",
+                exception
+            );
+        }
+    }
+
+    /**
+     * Parses an HTTP request and sends an interim response when requested.
+     *
+     * @param source
+     *     the byte source.
+     * @param options
+     *     the server options.
+     * @param continueSender
+     *     the interim response sender.
+     * @return
+     *     the parsed request.
+     * @throws IOException
+     *     if the interim response cannot be sent.
+     * @throws ServerException
+     *     if the request is invalid or cannot be read.
+     */
+    static Request parse(
+        final ByteSource source,
+        final Options options,
+        final ContinueSender continueSender
+    ) throws IOException, ServerException {
+        try {
+            return new RequestParser(
+                source,
+                options,
+                continueSender
+            ).parse();
         } catch (
             ConnectionClosedException
                 | ConnectionTimeoutException exception
@@ -103,13 +159,19 @@ final class RequestParser {
     /**
      * Parses the complete request.
      *
-     * @return the parsed request.
-     * @throws ServerException if the request is invalid.
+     * @return
+     *     the parsed request.
+     * @throws IOException
+     *     if the interim response cannot be sent.
+     * @throws ServerException
+     *     if the request is invalid.
      */
-    private Request parse() throws ServerException {
+    private Request parse() throws IOException, ServerException {
         try {
             parseHeaders();
             validateVersion();
+            validateFraming();
+            validateExpectation();
             parseTarget();
             parseCookies();
             parseBody();
@@ -159,13 +221,62 @@ final class RequestParser {
                 "HTTP/1.1 request must contain exactly one Host header"
             );
         }
+    }
 
-        if (headers.getValues().containsKey("Transfer-Encoding")) {
+    /**
+     * Validates request message framing and obtains the body length.
+     *
+     * @throws ServerException
+     *     if the framing is invalid or unsupported.
+     */
+    private void validateFraming() throws ServerException {
+        final boolean transferEncoded =
+            headers.getValues().containsKey("Transfer-Encoding");
+        final boolean lengthDeclared =
+            headers.getValues().containsKey("Content-Length");
+
+        if (transferEncoded && lengthDeclared) {
+            throw new ServerException(
+                "Content-Length and Transfer-Encoding must not be combined"
+            );
+        }
+
+        if (transferEncoded) {
             throw new ServerException(
                 HttpStatus.NOT_IMPLEMENTED,
                 "Transfer-Encoding is not supported"
             );
         }
+
+        contentLength = getContentLength();
+    }
+
+    /**
+     * Validates the request expectation.
+     *
+     * @throws ServerException
+     *     if the expectation is unsupported.
+     */
+    private void validateExpectation() throws ServerException {
+        final List<String> values =
+            headers.getValues().get("Expect");
+
+        if (values == null) {
+            return;
+        }
+
+        if (
+            headers.getVersion() != HttpVersion.HTTP_1_1
+                || values.size() != 1
+                || !"100-continue".equalsIgnoreCase(values.getFirst())
+        ) {
+            throw new ServerException(
+                HttpStatus.EXPECTATION_FAILED,
+                "Unsupported request expectation"
+            );
+        }
+
+        continueExpected = contentLength > 0;
     }
 
     /**
@@ -204,11 +315,11 @@ final class RequestParser {
     /**
      * Reads and parses the request body.
      *
+     * @throws IOException
+     *     if the interim response cannot be sent.
      * @throws ServerException if the body is invalid or incomplete.
      */
-    private void parseBody() throws ServerException {
-        final long contentLength = getContentLength();
-
+    private void parseBody() throws IOException, ServerException {
         if (contentLength == 0) {
             return;
         }
@@ -221,6 +332,10 @@ final class RequestParser {
                 HttpStatus.PAYLOAD_TOO_LARGE,
                 "Maximum HTTP request size exceeded"
             );
+        }
+
+        if (continueExpected) {
+            continueSender.send();
         }
 
         body = UploadedDataReader.read(
@@ -333,22 +448,45 @@ final class RequestParser {
 
         final String value = values.getFirst();
 
-        try {
-            final long length = Long.parseLong(value);
+        if (value.isEmpty()) {
+            throw new ServerException(
+                "Invalid Content-Length: " + value
+            );
+        }
 
-            if (length < 0) {
+        for (int index = 0; index < value.length(); index++) {
+            final char ch = value.charAt(index);
+
+            if (ch < '0' || ch > '9') {
                 throw new ServerException(
                     "Invalid Content-Length: " + value
                 );
             }
+        }
 
-            return length;
+        try {
+            return Long.parseLong(value);
         } catch (NumberFormatException exception) {
             throw new ServerException(
                 "Invalid Content-Length: " + value,
                 exception
             );
         }
+    }
+
+    /**
+     * Sends a {@code 100 Continue} interim response.
+     */
+    @FunctionalInterface
+    interface ContinueSender {
+
+        /**
+         * Sends the interim response.
+         *
+         * @throws IOException
+         *     if writing fails.
+         */
+        void send() throws IOException;
     }
 
     /**

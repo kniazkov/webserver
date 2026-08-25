@@ -125,6 +125,11 @@ public enum HttpStatus {
     RANGE_NOT_SATISFIABLE(416, "Range Not Satisfiable"),
 
     /**
+     * 417 Expectation Failed.
+     */
+    EXPECTATION_FAILED(417, "Expectation Failed"),
+
+    /**
      * 422 Unprocessable Content.
      */
     UNPROCESSABLE_CONTENT(422, "Unprocessable Content"),
