@@ -33,15 +33,21 @@ import java.util.Collection;
  */
 final class TlsMaterialLoader {
 
-    /** PEM private key opening marker. */
+    /**
+     * PEM private key opening marker.
+     */
     private static final String PRIVATE_KEY_BEGIN =
         "-----BEGIN PRIVATE KEY-----";
 
-    /** PEM private key closing marker. */
+    /**
+     * PEM private key closing marker.
+     */
     private static final String PRIVATE_KEY_END =
         "-----END PRIVATE KEY-----";
 
-    /** Prevents instantiation. */
+    /**
+     * Prevents instantiation.
+     */
     private TlsMaterialLoader() {
     }
 
@@ -142,7 +148,9 @@ final class TlsMaterialLoader {
         return factory.getTrustManagers();
     }
 
-    /** Loads a key or trust store. */
+    /**
+     * Loads a key or trust store.
+     */
     private static KeyStore loadStore(
         final File file,
         final String type,
@@ -155,7 +163,9 @@ final class TlsMaterialLoader {
         return result;
     }
 
-    /** Loads server credentials from PEM files. */
+    /**
+     * Loads server credentials from PEM files.
+     */
     private static KeyStore loadPemIdentity(
         final File certificateFile,
         final File privateKeyFile,
@@ -173,7 +183,9 @@ final class TlsMaterialLoader {
         return result;
     }
 
-    /** Loads trusted client certificates from a PEM file. */
+    /**
+     * Loads trusted client certificates from a PEM file.
+     */
     private static KeyStore loadPemTrust(final File file)
         throws IOException, GeneralSecurityException {
         final X509Certificate[] certificates = certificates(file);
@@ -189,7 +201,9 @@ final class TlsMaterialLoader {
         return result;
     }
 
-    /** Reads one or more PEM X.509 certificates. */
+    /**
+     * Reads one or more PEM X.509 certificates.
+     */
     private static X509Certificate[] certificates(final File file)
         throws IOException, GeneralSecurityException {
         final CertificateFactory factory =
@@ -221,7 +235,9 @@ final class TlsMaterialLoader {
         return result;
     }
 
-    /** Reads an unencrypted PKCS #8 PEM private key. */
+    /**
+     * Reads an unencrypted PKCS #8 PEM private key.
+     */
     private static PrivateKey privateKey(
         final File file,
         final String algorithm
@@ -279,12 +295,16 @@ final class TlsMaterialLoader {
         }
     }
 
-    /** Converts a non-secret PEM marker to US-ASCII bytes. */
+    /**
+     * Converts a non-secret PEM marker to US-ASCII bytes.
+     */
     private static byte[] bytes(final String value) {
         return value.getBytes(StandardCharsets.US_ASCII);
     }
 
-    /** Finds a byte sequence without converting private material to text. */
+    /**
+     * Finds a byte sequence without converting private material to text.
+     */
     private static int indexOf(
         final byte[] value,
         final byte[] target,
@@ -306,7 +326,9 @@ final class TlsMaterialLoader {
         return -1;
     }
 
-    /** Clears a mutable password copy. */
+    /**
+     * Clears a mutable password copy.
+     */
     private static void clear(final char[] value) {
         Arrays.fill(value, '\0');
     }

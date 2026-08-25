@@ -9,12 +9,18 @@ package com.kniazkov.webserver;
  */
 public enum SslClientAuthentication {
 
-    /** Do not request a client certificate. */
+    /**
+     * Do not request a client certificate.
+     */
     DISABLED,
 
-    /** Request a certificate but allow clients without one. */
+    /**
+     * Request a certificate but allow clients without one.
+     */
     OPTIONAL,
 
-    /** Require every client to present a trusted certificate. */
+    /**
+     * Require every client to present a trusted certificate.
+     */
     REQUIRED
 }

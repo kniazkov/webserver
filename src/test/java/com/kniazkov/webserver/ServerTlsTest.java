@@ -40,15 +40,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 final class ServerTlsTest {
 
-    /** Test key-store password. */
+    /**
+     * Test key-store password.
+     */
     private static final char[] PASSWORD =
         "test-password".toCharArray();
 
-    /** TLS 1.2 cipher suite supported by the test JDK. */
+    /**
+     * TLS 1.2 cipher suite supported by the test JDK.
+     */
     private static final String TLS_1_2_CIPHER =
         "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
 
-    /** Temporary test directory. */
+    /**
+     * Temporary test directory.
+     */
     @TempDir
     private Path directory;
 
@@ -231,14 +237,18 @@ final class ServerTlsTest {
         );
     }
 
-    /** Creates a builder configured with the test PKCS #12 key store. */
+    /**
+     * Creates a builder configured with the test PKCS #12 key store.
+     */
     private SslOptions.Builder keyStoreBuilder() {
         return new SslOptions.Builder()
             .setKeyStoreFile(keyStoreFile())
             .setPassword(PASSWORD);
     }
 
-    /** Starts a TLS server on an automatically selected loopback port. */
+    /**
+     * Starts a TLS server on an automatically selected loopback port.
+     */
     private static Server start(final SslOptions ssl)
         throws ServerException {
         return Server.start(
@@ -250,13 +260,17 @@ final class ServerTlsTest {
         );
     }
 
-    /** Creates a client socket that trusts the test server certificate. */
+    /**
+     * Creates a client socket that trusts the test server certificate.
+     */
     private static SSLSocket connect(final Server server)
         throws Exception {
         return connect(server, null);
     }
 
-    /** Creates a client socket that presents the test certificate. */
+    /**
+     * Creates a client socket that presents the test certificate.
+     */
     private SSLSocket connectWithCertificate(final Server server)
         throws Exception {
         final KeyStore store = loadKeyStore();
@@ -267,7 +281,9 @@ final class ServerTlsTest {
         return connect(server, factory.getKeyManagers());
     }
 
-    /** Creates a trusted test client with optional key managers. */
+    /**
+     * Creates a trusted test client with optional key managers.
+     */
     private static SSLSocket connect(
         final Server server,
         final KeyManager[] keyManagers
@@ -283,7 +299,9 @@ final class ServerTlsTest {
             .createSocket("127.0.0.1", server.getPort());
     }
 
-    /** Returns the test key-store file. */
+    /**
+     * Returns the test key-store file.
+     */
     private File keyStoreFile() {
         try {
             final URL resource = Objects.requireNonNull(
@@ -299,7 +317,9 @@ final class ServerTlsTest {
         }
     }
 
-    /** Extracts the existing test identity into PEM files. */
+    /**
+     * Extracts the existing test identity into PEM files.
+     */
     private PemMaterial extractPemMaterial() throws Exception {
         final KeyStore store = loadKeyStore();
 
@@ -329,7 +349,9 @@ final class ServerTlsTest {
         return new PemMaterial(certificateFile, privateKeyFile);
     }
 
-    /** Loads the PKCS #12 test identity. */
+    /**
+     * Loads the PKCS #12 test identity.
+     */
     private KeyStore loadKeyStore() throws Exception {
         final KeyStore store = KeyStore.getInstance("PKCS12");
         try (FileInputStream input = new FileInputStream(keyStoreFile())) {
@@ -338,7 +360,9 @@ final class ServerTlsTest {
         return store;
     }
 
-    /** Encodes binary data as a PEM block. */
+    /**
+     * Encodes binary data as a PEM block.
+     */
     private static String pem(final String type, final byte[] value) {
         return "-----BEGIN " + type + "-----\n"
             + Base64.getMimeEncoder(
@@ -348,14 +372,20 @@ final class ServerTlsTest {
             + "\n-----END " + type + "-----\n";
     }
 
-    /** Paths of extracted test PEM material. */
+    /**
+     * Paths of extracted test PEM material.
+     */
     private record PemMaterial(Path certificate, Path privateKey) {
     }
 
-    /** Trust manager used only by local TLS tests. */
+    /**
+     * Trust manager used only by local TLS tests.
+     */
     private static final class TrustAllManager implements X509TrustManager {
 
-        /** Accepts every client certificate. */
+        /**
+         * Accepts every client certificate.
+         */
         @Override
         public void checkClientTrusted(
             final X509Certificate[] chain,
@@ -363,7 +393,9 @@ final class ServerTlsTest {
         ) {
         }
 
-        /** Accepts every server certificate. */
+        /**
+         * Accepts every server certificate.
+         */
         @Override
         public void checkServerTrusted(
             final X509Certificate[] chain,
@@ -371,7 +403,9 @@ final class ServerTlsTest {
         ) {
         }
 
-        /** Returns no pre-approved issuers. */
+        /**
+         * Returns no pre-approved issuers.
+         */
         @Override
         public X509Certificate[] getAcceptedIssuers() {
             return new X509Certificate[0];

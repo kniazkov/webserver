@@ -20,7 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 final class SslOptionsTest {
 
-    /** Temporary test directory. */
+    /**
+     * Temporary test directory.
+     */
     @TempDir
     private Path directory;
 
@@ -218,7 +220,9 @@ final class SslOptionsTest {
         );
     }
 
-    /** Creates a readable placeholder file. */
+    /**
+     * Creates a readable placeholder file.
+     */
     private Path file(final String name) throws Exception {
         return Files.writeString(directory.resolve(name), "placeholder");
     }

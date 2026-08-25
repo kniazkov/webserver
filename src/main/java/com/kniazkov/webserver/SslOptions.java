@@ -19,53 +19,85 @@ import java.util.function.Function;
  */
 public final class SslOptions {
 
-    /** Default key and trust store type. */
+    /**
+     * Default key and trust store type.
+     */
     private static final KeyStoreType DEFAULT_STORE_TYPE =
         KeyStoreType.PKCS12;
 
-    /** Default TLS context protocol. */
+    /**
+     * Default TLS context protocol.
+     */
     private static final SslProtocol DEFAULT_PROTOCOL = SslProtocol.TLS;
 
-    /** Key store file. */
+    /**
+     * Key store file.
+     */
     private final File keyStoreFile;
 
-    /** Key store password. */
+    /**
+     * Key store password.
+     */
     private final char[] keyStorePassword;
 
-    /** Private key password. */
+    /**
+     * Private key password.
+     */
     private final char[] keyPassword;
 
-    /** Key store type. */
+    /**
+     * Key store type.
+     */
     private final KeyStoreType keyStoreType;
 
-    /** PEM certificate chain file. */
+    /**
+     * PEM certificate chain file.
+     */
     private final File certificateChainFile;
 
-    /** PEM private key file. */
+    /**
+     * PEM private key file.
+     */
     private final File privateKeyFile;
 
-    /** Trust store file. */
+    /**
+     * Trust store file.
+     */
     private final File trustStoreFile;
 
-    /** Trust store password. */
+    /**
+     * Trust store password.
+     */
     private final char[] trustStorePassword;
 
-    /** Trust store type. */
+    /**
+     * Trust store type.
+     */
     private final KeyStoreType trustStoreType;
 
-    /** PEM trust certificate file. */
+    /**
+     * PEM trust certificate file.
+     */
     private final File trustCertificatesFile;
 
-    /** TLS context protocol. */
+    /**
+     * TLS context protocol.
+     */
     private final SslProtocol protocol;
 
-    /** Explicitly enabled TLS versions. */
+    /**
+     * Explicitly enabled TLS versions.
+     */
     private final List<SslProtocol> enabledProtocols;
 
-    /** Explicitly enabled cipher suites. */
+    /**
+     * Explicitly enabled cipher suites.
+     */
     private final List<String> cipherSuites;
 
-    /** Client-certificate policy. */
+    /**
+     * Client-certificate policy.
+     */
     private final SslClientAuthentication clientAuthentication;
 
     /**
@@ -246,7 +278,9 @@ public final class SslOptions {
         return clientAuthentication;
     }
 
-    /** Requires a configured value. */
+    /**
+     * Requires a configured value.
+     */
     private static <T> T configured(final T value, final String message) {
         if (value == null) {
             throw new IllegalStateException(message);
@@ -254,7 +288,9 @@ public final class SslOptions {
         return value;
     }
 
-    /** Returns an optional defensive copy of a password. */
+    /**
+     * Returns an optional defensive copy of a password.
+     */
     private static Optional<char[]> copy(final char[] value) {
         return value == null
             ? Optional.empty()
@@ -266,65 +302,116 @@ public final class SslOptions {
      */
     public static final class Builder {
 
-        /** Key store file. */
+        /**
+         * Key store file.
+         */
         private File keyStoreFile;
 
-        /** Key store password. */
+        /**
+         * Key store password.
+         */
         private char[] keyStorePassword;
 
-        /** Private key password. */
+        /**
+         * Private key password.
+         */
         private char[] keyPassword;
 
-        /** Key store type. */
+        /**
+         * Key store type.
+         */
         private KeyStoreType keyStoreType = DEFAULT_STORE_TYPE;
 
-        /** PEM certificate chain file. */
+        /**
+         * PEM certificate chain file.
+         */
         private File certificateChainFile;
 
-        /** PEM private key file. */
+        /**
+         * PEM private key file.
+         */
         private File privateKeyFile;
 
-        /** Trust store file. */
+        /**
+         * Trust store file.
+         */
         private File trustStoreFile;
 
-        /** Trust store password. */
+        /**
+         * Trust store password.
+         */
         private char[] trustStorePassword;
 
-        /** Trust store type. */
+        /**
+         * Trust store type.
+         */
         private KeyStoreType trustStoreType = DEFAULT_STORE_TYPE;
 
-        /** PEM trust certificate file. */
+        /**
+         * PEM trust certificate file.
+         */
         private File trustCertificatesFile;
 
-        /** TLS context protocol. */
+        /**
+         * TLS context protocol.
+         */
         private SslProtocol protocol = DEFAULT_PROTOCOL;
 
-        /** Explicitly enabled TLS versions. */
+        /**
+         * Explicitly enabled TLS versions.
+         */
         private List<SslProtocol> enabledProtocols = List.of();
 
-        /** Explicitly enabled cipher suites. */
+        /**
+         * Explicitly enabled cipher suites.
+         */
         private List<String> cipherSuites = List.of();
 
-        /** Client-certificate policy. */
+        /**
+         * Client-certificate policy.
+         */
         private SslClientAuthentication clientAuthentication =
             SslClientAuthentication.DISABLED;
 
-        /** Creates a builder with default values. */
+        /**
+         * Creates a builder with default values.
+         */
         public Builder() {
         }
 
-        /** @param value file; @return this builder. */
+        /**
+         * Sets the key store file.
+         *
+         * @param value
+         *     the file.
+         * @return
+         *     this builder.
+         */
         public Builder setKeyStoreFile(final File value) {
             keyStoreFile = require(value, "Key store file");
             return this;
         }
 
-        /** @param value path; @return this builder. */
+        /**
+         * Sets the key store file path.
+         *
+         * @param value
+         *     the path.
+         * @return
+         *     this builder.
+         */
         public Builder setKeyStoreFile(final String value) {
             return setKeyStoreFile(file(value, "Key store file"));
         }
 
-        /** @param value password; @return this builder. */
+        /**
+         * Sets the key store password.
+         *
+         * @param value
+         *     the password.
+         * @return
+         *     this builder.
+         */
         public Builder setKeyStorePassword(final char[] value) {
             clear(keyStorePassword);
             keyStorePassword = password(value, "Key store password");
@@ -341,7 +428,14 @@ public final class SslOptions {
             return stringPassword(value, this::setKeyStorePassword);
         }
 
-        /** @param value password; @return this builder. */
+        /**
+         * Sets the private key password.
+         *
+         * @param value
+         *     the password.
+         * @return
+         *     this builder.
+         */
         public Builder setKeyPassword(final char[] value) {
             clear(keyPassword);
             keyPassword = password(value, "Key password");
@@ -358,7 +452,14 @@ public final class SslOptions {
             return stringPassword(value, this::setKeyPassword);
         }
 
-        /** @param value password; @return this builder. */
+        /**
+         * Sets the key store and private key passwords.
+         *
+         * @param value
+         *     the password.
+         * @return
+         *     this builder.
+         */
         public Builder setPassword(final char[] value) {
             Objects.requireNonNull(value, "Password must not be null");
             setKeyStorePassword(value);
@@ -376,48 +477,104 @@ public final class SslOptions {
             return stringPassword(value, this::setPassword);
         }
 
-        /** @param value type; @return this builder. */
+        /**
+         * Sets the key store type.
+         *
+         * @param value
+         *     the type.
+         * @return
+         *     this builder.
+         */
         public Builder setKeyStoreType(final KeyStoreType value) {
             keyStoreType = require(value, "Key store type");
             return this;
         }
 
-        /** @param value file; @return this builder. */
+        /**
+         * Sets the PEM certificate chain file.
+         *
+         * @param value
+         *     the file.
+         * @return
+         *     this builder.
+         */
         public Builder setCertificateChainFile(final File value) {
             certificateChainFile = require(value, "Certificate chain file");
             return this;
         }
 
-        /** @param value path; @return this builder. */
+        /**
+         * Sets the PEM certificate chain file path.
+         *
+         * @param value
+         *     the path.
+         * @return
+         *     this builder.
+         */
         public Builder setCertificateChainFile(final String value) {
             return setCertificateChainFile(
                 file(value, "Certificate chain file")
             );
         }
 
-        /** @param value file; @return this builder. */
+        /**
+         * Sets the PEM private key file.
+         *
+         * @param value
+         *     the file.
+         * @return
+         *     this builder.
+         */
         public Builder setPrivateKeyFile(final File value) {
             privateKeyFile = require(value, "Private key file");
             return this;
         }
 
-        /** @param value path; @return this builder. */
+        /**
+         * Sets the PEM private key file path.
+         *
+         * @param value
+         *     the path.
+         * @return
+         *     this builder.
+         */
         public Builder setPrivateKeyFile(final String value) {
             return setPrivateKeyFile(file(value, "Private key file"));
         }
 
-        /** @param value file; @return this builder. */
+        /**
+         * Sets the client trust store file.
+         *
+         * @param value
+         *     the file.
+         * @return
+         *     this builder.
+         */
         public Builder setTrustStoreFile(final File value) {
             trustStoreFile = require(value, "Trust store file");
             return this;
         }
 
-        /** @param value path; @return this builder. */
+        /**
+         * Sets the client trust store file path.
+         *
+         * @param value
+         *     the path.
+         * @return
+         *     this builder.
+         */
         public Builder setTrustStoreFile(final String value) {
             return setTrustStoreFile(file(value, "Trust store file"));
         }
 
-        /** @param value password; @return this builder. */
+        /**
+         * Sets the client trust store password.
+         *
+         * @param value
+         *     the password.
+         * @return
+         *     this builder.
+         */
         public Builder setTrustStorePassword(final char[] value) {
             clear(trustStorePassword);
             trustStorePassword = password(value, "Trust store password");
@@ -434,13 +591,27 @@ public final class SslOptions {
             return stringPassword(value, this::setTrustStorePassword);
         }
 
-        /** @param value type; @return this builder. */
+        /**
+         * Sets the client trust store type.
+         *
+         * @param value
+         *     the type.
+         * @return
+         *     this builder.
+         */
         public Builder setTrustStoreType(final KeyStoreType value) {
             trustStoreType = require(value, "Trust store type");
             return this;
         }
 
-        /** @param value file; @return this builder. */
+        /**
+         * Sets the PEM client trust-certificate file.
+         *
+         * @param value
+         *     the file.
+         * @return
+         *     this builder.
+         */
         public Builder setTrustCertificatesFile(final File value) {
             trustCertificatesFile = require(
                 value,
@@ -449,14 +620,28 @@ public final class SslOptions {
             return this;
         }
 
-        /** @param value path; @return this builder. */
+        /**
+         * Sets the PEM client trust-certificate file path.
+         *
+         * @param value
+         *     the path.
+         * @return
+         *     this builder.
+         */
         public Builder setTrustCertificatesFile(final String value) {
             return setTrustCertificatesFile(
                 file(value, "Trust certificate file")
             );
         }
 
-        /** @param value protocol; @return this builder. */
+        /**
+         * Sets the TLS context protocol.
+         *
+         * @param value
+         *     the protocol.
+         * @return
+         *     this builder.
+         */
         public Builder setProtocol(final SslProtocol value) {
             protocol = require(value, "Protocol");
             return this;
@@ -522,7 +707,14 @@ public final class SslOptions {
             return this;
         }
 
-        /** @param value policy; @return this builder. */
+        /**
+         * Sets the client-certificate authentication policy.
+         *
+         * @param value
+         *     the policy.
+         * @return
+         *     this builder.
+         */
         public Builder setClientAuthentication(
             final SslClientAuthentication value
         ) {
@@ -550,7 +742,9 @@ public final class SslOptions {
             return result;
         }
 
-        /** Validates the server identity source. */
+        /**
+         * Validates the server identity source.
+         */
         private void validateIdentity() {
             final boolean store = keyStoreFile != null;
             final boolean pem = certificateChainFile != null
@@ -589,7 +783,9 @@ public final class SslOptions {
             validateFile(privateKeyFile, "Private key");
         }
 
-        /** Validates client trust configuration. */
+        /**
+         * Validates client trust configuration.
+         */
         private void validateTrust() {
             if (trustStoreFile != null && trustCertificatesFile != null) {
                 throw new IllegalStateException(
@@ -622,7 +818,9 @@ public final class SslOptions {
             }
         }
 
-        /** Validates a TLS material file. */
+        /**
+         * Validates a TLS material file.
+         */
         private static void validateFile(
             final File value,
             final String name
@@ -644,7 +842,9 @@ public final class SslOptions {
             }
         }
 
-        /** Converts and promptly clears a legacy string password copy. */
+        /**
+         * Converts and promptly clears a legacy string password copy.
+         */
         private Builder stringPassword(
             final String value,
             final Function<char[], Builder> setter
@@ -657,7 +857,9 @@ public final class SslOptions {
             }
         }
 
-        /** Creates a defensive password copy. */
+        /**
+         * Creates a defensive password copy.
+         */
         private static char[] password(
             final char[] value,
             final String name
@@ -665,12 +867,16 @@ public final class SslOptions {
             return require(value, name).clone();
         }
 
-        /** Converts a path to a file. */
+        /**
+         * Converts a path to a file.
+         */
         private static File file(final String value, final String name) {
             return new File(require(value, name));
         }
 
-        /** Requires a non-null value. */
+        /**
+         * Requires a non-null value.
+         */
         private static <T> T require(final T value, final String name) {
             return Objects.requireNonNull(
                 value,
@@ -678,7 +884,9 @@ public final class SslOptions {
             );
         }
 
-        /** Clears a password copy. */
+        /**
+         * Clears a password copy.
+         */
         private static void clear(final char[] value) {
             if (value != null) {
                 Arrays.fill(value, '\0');
