@@ -198,6 +198,9 @@ final class RequestHeadersBuilderInvalidTest {
         }
     }
 
+    /**
+     * Tests a request target that contains only whitespace.
+     */
     @Test
     void blankTarget() {
         final RequestHeadersBuilder builder = new RequestHeadersBuilder()

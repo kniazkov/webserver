@@ -17,22 +17,49 @@ import java.util.OptionalLong;
  */
 public final class ResponseCookie {
 
+    /**
+     * The cookie name.
+     */
     private final String name;
 
+    /**
+     * The cookie value.
+     */
     private final String value;
 
+    /**
+     * The optional request path restriction.
+     */
     private final String path;
 
+    /**
+     * The optional domain restriction.
+     */
     private final String domain;
 
+    /**
+     * The optional expiration time.
+     */
     private final Instant expires;
 
+    /**
+     * The optional maximum age in seconds.
+     */
     private final Long maxAge;
 
+    /**
+     * Whether the cookie requires a secure connection.
+     */
     private final boolean secure;
 
+    /**
+     * Whether scripts must be prevented from reading the cookie.
+     */
     private final boolean httpOnly;
 
+    /**
+     * The optional cross-site request policy.
+     */
     private final SameSite sameSite;
 
     /**
@@ -56,40 +83,94 @@ public final class ResponseCookie {
         validate();
     }
 
+    /**
+     * Returns the cookie name.
+     *
+     * @return
+     *     the cookie name.
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Returns the cookie value.
+     *
+     * @return
+     *     the cookie value.
+     */
     public String getValue() {
         return value;
     }
 
+    /**
+     * Returns the request path restriction.
+     *
+     * @return
+     *     the path, or an empty optional when it is unrestricted.
+     */
     public Optional<String> getPath() {
         return Optional.ofNullable(path);
     }
 
+    /**
+     * Returns the domain restriction.
+     *
+     * @return
+     *     the domain, or an empty optional when it is unrestricted.
+     */
     public Optional<String> getDomain() {
         return Optional.ofNullable(domain);
     }
 
+    /**
+     * Returns the expiration time.
+     *
+     * @return
+     *     the expiration time, or an empty optional when it is not set.
+     */
     public Optional<Instant> getExpires() {
         return Optional.ofNullable(expires);
     }
 
+    /**
+     * Returns the maximum age in seconds.
+     *
+     * @return
+     *     the maximum age, or an empty optional when it is not set.
+     */
     public OptionalLong getMaxAge() {
         return maxAge == null
             ? OptionalLong.empty()
             : OptionalLong.of(maxAge);
     }
 
+    /**
+     * Returns whether the cookie requires a secure connection.
+     *
+     * @return
+     *     {@code true} when the secure attribute is enabled.
+     */
     public boolean isSecure() {
         return secure;
     }
 
+    /**
+     * Returns whether scripts are prevented from reading the cookie.
+     *
+     * @return
+     *     {@code true} when the HTTP-only attribute is enabled.
+     */
     public boolean isHttpOnly() {
         return httpOnly;
     }
 
+    /**
+     * Returns the cross-site request policy.
+     *
+     * @return
+     *     the policy, or an empty optional when it is not set.
+     */
     public Optional<SameSite> getSameSite() {
         return Optional.ofNullable(sameSite);
     }
@@ -257,22 +338,49 @@ public final class ResponseCookie {
      */
     public static final class Builder {
 
+        /**
+         * The cookie name.
+         */
         private final String name;
 
+        /**
+         * The cookie value.
+         */
         private final String value;
 
+        /**
+         * The optional request path restriction.
+         */
         private String path;
 
+        /**
+         * The optional domain restriction.
+         */
         private String domain;
 
+        /**
+         * The optional expiration time.
+         */
         private Instant expires;
 
+        /**
+         * The optional maximum age in seconds.
+         */
         private Long maxAge;
 
+        /**
+         * Whether the cookie requires a secure connection.
+         */
         private boolean secure;
 
+        /**
+         * Whether scripts must be prevented from reading the cookie.
+         */
         private boolean httpOnly;
 
+        /**
+         * The optional cross-site request policy.
+         */
         private SameSite sameSite;
 
         /**
@@ -294,21 +402,53 @@ public final class ResponseCookie {
             );
         }
 
+        /**
+         * Sets the request path restriction.
+         *
+         * @param value
+         *     the path, or {@code null} to remove the restriction.
+         * @return
+         *     this builder.
+         */
         public Builder setPath(final String value) {
             path = value;
             return this;
         }
 
+        /**
+         * Sets the domain restriction.
+         *
+         * @param value
+         *     the domain, or {@code null} to remove the restriction.
+         * @return
+         *     this builder.
+         */
         public Builder setDomain(final String value) {
             domain = value;
             return this;
         }
 
+        /**
+         * Sets the expiration time.
+         *
+         * @param value
+         *     the expiration time, or {@code null} to remove it.
+         * @return
+         *     this builder.
+         */
         public Builder setExpires(final Instant value) {
             expires = value;
             return this;
         }
 
+        /**
+         * Sets the maximum age.
+         *
+         * @param value
+         *     the maximum age.
+         * @return
+         *     this builder.
+         */
         public Builder setMaxAge(final Duration value) {
             maxAge = Objects.requireNonNull(
                 value,
@@ -317,21 +457,53 @@ public final class ResponseCookie {
             return this;
         }
 
+        /**
+         * Enables or disables the secure attribute.
+         *
+         * @param value
+         *     whether the attribute is enabled.
+         * @return
+         *     this builder.
+         */
         public Builder setSecure(final boolean value) {
             secure = value;
             return this;
         }
 
+        /**
+         * Enables or disables the HTTP-only attribute.
+         *
+         * @param value
+         *     whether the attribute is enabled.
+         * @return
+         *     this builder.
+         */
         public Builder setHttpOnly(final boolean value) {
             httpOnly = value;
             return this;
         }
 
+        /**
+         * Sets the cross-site request policy.
+         *
+         * @param value
+         *     the policy, or {@code null} to remove it.
+         * @return
+         *     this builder.
+         */
         public Builder setSameSite(final SameSite value) {
             sameSite = value;
             return this;
         }
 
+        /**
+         * Builds and validates an immutable response cookie.
+         *
+         * @return
+         *     the response cookie.
+         * @throws ServerException
+         *     if the cookie cannot be serialized safely.
+         */
         public ResponseCookie build() throws ServerException {
             return new ResponseCookie(this);
         }

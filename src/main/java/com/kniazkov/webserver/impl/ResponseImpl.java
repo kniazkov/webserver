@@ -19,16 +19,43 @@ import java.util.Optional;
  */
 final class ResponseImpl implements Response {
 
+    /**
+     * The HTTP status.
+     */
     private final HttpStatus status;
 
+    /**
+     * The response media type.
+     */
     private final ContentType contentType;
 
+    /**
+     * The optional character encoding.
+     */
     private final Charset charset;
 
+    /**
+     * The immutable response headers.
+     */
     private final Map<String, List<String>> headers;
 
+    /**
+     * The response body.
+     */
     private final byte[] data;
 
+    /**
+     * Creates an immutable response without an explicit character encoding.
+     *
+     * @param status
+     *     the HTTP status.
+     * @param contentType
+     *     the response media type.
+     * @param headers
+     *     the response headers.
+     * @param data
+     *     the response body.
+     */
     ResponseImpl(
         final HttpStatus status,
         final ContentType contentType,
@@ -38,6 +65,20 @@ final class ResponseImpl implements Response {
         this(status, contentType, headers, data, null);
     }
 
+    /**
+     * Creates an immutable response.
+     *
+     * @param status
+     *     the HTTP status.
+     * @param contentType
+     *     the response media type.
+     * @param headers
+     *     the response headers.
+     * @param data
+     *     the response body.
+     * @param charset
+     *     the optional character encoding.
+     */
     ResponseImpl(
         final HttpStatus status,
         final ContentType contentType,
