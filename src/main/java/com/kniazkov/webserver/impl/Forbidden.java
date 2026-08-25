@@ -9,10 +9,12 @@ import com.kniazkov.webserver.ErrorPage;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Response;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Represents a 403 Forbidden response.
@@ -51,6 +53,11 @@ final class Forbidden implements Response {
     @Override
     public ContentType getContentType() {
         return ContentType.TEXT_HTML;
+    }
+
+    @Override
+    public Optional<Charset> getCharset() {
+        return Optional.of(StandardCharsets.UTF_8);
     }
 
     @Override

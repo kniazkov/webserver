@@ -11,6 +11,7 @@ import com.kniazkov.webserver.ResponseBuilder;
 import com.kniazkov.webserver.ResponseCookie;
 import com.kniazkov.webserver.ServerException;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +32,11 @@ final class ResponseBuilderImpl implements ResponseBuilder {
      * The content type.
      */
     private final ContentType contentType;
+
+    /**
+     * The response body character set, or {@code null} for raw data.
+     */
+    private final Charset charset;
 
     /**
      * The response data.
@@ -61,7 +67,7 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         final HttpStatus status,
         final ContentType contentType
     ) {
-        this(status, contentType, null);
+        this(status, contentType, null, null);
     }
 
     /**
@@ -79,6 +85,27 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         final ContentType contentType,
         final byte[] data
     ) {
+        this(status, contentType, data, null);
+    }
+
+    /**
+     * Creates a response builder with an explicit body character set.
+     *
+     * @param status
+     *     the HTTP status.
+     * @param contentType
+     *     the content type.
+     * @param data
+     *     the response data, or {@code null} if there is no body.
+     * @param charset
+     *     the body character set, or {@code null} for raw data.
+     */
+    ResponseBuilderImpl(
+        final HttpStatus status,
+        final ContentType contentType,
+        final byte[] data,
+        final Charset charset
+    ) {
         this.status = Objects.requireNonNull(
             status,
             "HTTP status must not be null"
@@ -87,6 +114,7 @@ final class ResponseBuilderImpl implements ResponseBuilder {
             contentType,
             "Content type must not be null"
         );
+        this.charset = charset;
         this.data = data == null ? new byte[0] : data.clone();
     }
 
@@ -204,7 +232,8 @@ final class ResponseBuilderImpl implements ResponseBuilder {
             status,
             contentType,
             result,
-            data
+            data,
+            charset
         );
     }
 
@@ -224,46 +253,7 @@ final class ResponseBuilderImpl implements ResponseBuilder {
         final String name,
         final String value
     ) throws ServerException {
-        if (name == null || name.isEmpty()) {
-            throw new ServerException(
-                "Response header name is missing"
-            );
-        }
-
-        if (value == null) {
-            throw new ServerException(
-                "Response header value is missing"
-            );
-        }
-
-        for (int index = 0; index < name.length(); index++) {
-            if (!Lexer.isTokenCharacter(name.charAt(index))) {
-                throw new ServerException(
-                    "Invalid response header name: " + name
-                );
-            }
-        }
-
-        if (
-            name.equalsIgnoreCase("Content-Type")
-                || name.equalsIgnoreCase("Content-Length")
-                || name.equalsIgnoreCase("Transfer-Encoding")
-        ) {
-            throw new ServerException(
-                "Response header is managed by the server: " + name
-            );
-        }
-
-        if (
-            value.indexOf('\r') >= 0
-                || value.indexOf('\n') >= 0
-        ) {
-            throw new ServerException(
-                "Invalid response header value"
-            );
-        }
-
-        return Lexer.canonicalizeHeaderName(name);
+        return ResponseHeaderValidator.validate(name, value);
     }
 
 }

@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -65,6 +66,7 @@ final class ResponseFactoryTest {
             ContentType.APPLICATION_CBOR,
             response.getContentType()
         );
+        assertTrue(response.getCharset().isEmpty());
         assertEquals(
             List.of("123"),
             response.getHeaders().get("X-Request-Id")
@@ -89,6 +91,10 @@ final class ResponseFactoryTest {
         assertEquals(
             ContentType.APPLICATION_JSON,
             response.getContentType()
+        );
+        assertEquals(
+            StandardCharsets.UTF_8,
+            response.getCharset().orElseThrow()
         );
         assertEquals(
             "{\"accepted\":true}",
@@ -235,25 +241,60 @@ final class ResponseFactoryTest {
      */
     @Test
     void managedHeadersAreRejected() {
-        assertThrows(
-            ServerException.class,
+        final List<String> names = List.of(
+            "Close",
+            "Connection",
+            "Content-Length",
+            "Content-Type",
+            "Keep-Alive",
+            "Proxy-Connection",
+            "TE",
+            "Trailer",
+            "Transfer-Encoding",
+            "Upgrade"
+        );
+
+        for (String name : names) {
+            assertThrows(
+                ServerException.class,
+                () -> factory
+                    .fromText("Text")
+                    .setHeader(name, "value")
+            );
+        }
+    }
+
+    /**
+     * Tests rejection of control characters in response header values.
+     */
+    @Test
+    void unsafeHeaderValuesAreRejected() {
+        final char[] controls = {
+            0x00,
+            0x01,
+            0x0b,
+            0x0c,
+            '\r',
+            '\n',
+            0x7f
+        };
+
+        for (char control : controls) {
+            assertThrows(
+                ServerException.class,
+                () -> factory
+                    .fromText("Text")
+                    .setHeader(
+                        "X-Test",
+                        "before" + control + "after"
+                    )
+            );
+        }
+
+        assertDoesNotThrow(
             () -> factory
                 .fromText("Text")
-                .setHeader("Content-Type", "application/json")
-        );
-
-        assertThrows(
-            ServerException.class,
-            () -> factory
-                .fromBytes(new byte[]{1, 2, 3})
-                .setHeader("Content-Length", "100")
-        );
-
-        assertThrows(
-            ServerException.class,
-            () -> factory
-                .fromBytes(new byte[]{1, 2, 3})
-                .setHeader("Transfer-Encoding", "chunked")
+                .setHeader("X-Test", "before\tafter")
         );
     }
 }

@@ -47,6 +47,7 @@ final class WorkerErrorTest extends WorkerBaseTest {
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 400")
             );
+            assertEquals("close", response.header("Connection"));
             assertTrue(response.text().contains("Bad Request"));
             assertFalse(
                 response.text().contains(

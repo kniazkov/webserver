@@ -326,7 +326,8 @@ final class ResponseFactoryImpl implements ResponseFactory {
                 status.getCode(),
                 status.getReason(),
                 message == null ? status.getReason() : message
-            ).getBytes(StandardCharsets.UTF_8)
+            ).getBytes(StandardCharsets.UTF_8),
+            StandardCharsets.UTF_8
         );
     }
 
@@ -350,7 +351,8 @@ final class ResponseFactoryImpl implements ResponseFactory {
             Objects.requireNonNull(
                 value,
                 "Response value must not be null"
-            ).getBytes(StandardCharsets.UTF_8)
+            ).getBytes(StandardCharsets.UTF_8),
+            StandardCharsets.UTF_8
         );
     }
 

@@ -315,7 +315,9 @@ return factory
     .build();
 ```
 
-The appropriate `Content-Type` is selected automatically.
+The appropriate `Content-Type` is selected automatically. Text created by
+these factory methods is encoded as UTF-8 and the response declares
+`charset=UTF-8` explicitly.
 
 ### Status, Binary Data, and Content Types
 
@@ -365,9 +367,13 @@ return factory
     .build();
 ```
 
-Headers managed by the HTTP server itself (`Content-Type`, `Content-Length`,
-and `Transfer-Encoding`) cannot be supplied through the builder. The final
-content length is calculated from the actual response data.
+Framing, representation, and hop-by-hop headers managed by the HTTP server
+cannot be supplied through the builder. The reserved names are `Close`,
+`Connection`, `Content-Length`, `Content-Type`, `Keep-Alive`,
+`Proxy-Connection`, `TE`, `Trailer`, `Transfer-Encoding`, and `Upgrade`.
+The final content length and connection policy are generated from the actual
+response and request. Header values containing unsafe control characters are
+rejected; horizontal tab remains available where HTTP field syntax permits it.
 
 ### Cookies
 
@@ -830,6 +836,12 @@ For HTTP/1.0, connections are closed by default and can be kept open explicitly:
 Connection: keep-alive
 ```
 
+The response mirrors the resulting transport decision: a connection that will
+close carries `Connection: close`, while an accepted HTTP/1.0 persistent
+connection carries `Connection: keep-alive`. HTTP/1.1 persistent responses do
+not need a `Connection` header. If a request contains both options, `close`
+takes precedence.
+
 A persistent connection can carry multiple requests sequentially. Each request is parsed and processed independently while the underlying TCP connection remains open.
 
 Application handlers do not need to manage any of this. They receive one `Request` at a time and return one `Response`.
@@ -943,7 +955,9 @@ HTTP headers are parsed and made available through the request API. Repeated hea
 
 Incoming `Cookie` headers are parsed into structured cookie values, while response cookies can be generated through `ResponseBuilder`.
 
-Response headers such as `Content-Length` and `Content-Type` are generated from the actual response and cannot accidentally be made inconsistent with its contents by supplying conflicting custom values.
+Response framing, content metadata, and connection headers are generated from
+the actual response and transport decision. Application code cannot override
+them with conflicting custom values.
 
 ### Static Content
 

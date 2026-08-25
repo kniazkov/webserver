@@ -8,8 +8,10 @@ import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.Response;
 
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Represents the absence of an explicit HTTP response.
@@ -60,6 +62,17 @@ final class NoResponse implements Response {
      */
     @Override
     public ContentType getContentType() {
+        throw invalidState();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalStateException
+     *     always, because this object does not represent an HTTP response.
+     */
+    @Override
+    public Optional<Charset> getCharset() {
         throw invalidState();
     }
 

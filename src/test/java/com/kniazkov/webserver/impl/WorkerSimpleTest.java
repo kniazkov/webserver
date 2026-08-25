@@ -163,7 +163,7 @@ final class WorkerSimpleTest extends WorkerBaseTest {
                 response.statusLine().startsWith("HTTP/1.1 200")
             );
             assertEquals(
-                "application/json",
+                "application/json; charset=UTF-8",
                 response.header("Content-Type")
             );
             assertEquals(

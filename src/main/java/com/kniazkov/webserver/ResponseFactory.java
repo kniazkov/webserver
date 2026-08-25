@@ -112,7 +112,7 @@ public interface ResponseFactory {
     );
 
     /**
-     * Creates a plain text response builder.
+     * Creates a UTF-8 plain text response builder.
      *
      * @param value
      *     the response text.
@@ -122,7 +122,7 @@ public interface ResponseFactory {
     ResponseBuilder fromText(String value);
 
     /**
-     * Creates an HTML response builder.
+     * Creates a UTF-8 HTML response builder.
      *
      * @param value
      *     the HTML content.
@@ -132,7 +132,7 @@ public interface ResponseFactory {
     ResponseBuilder fromHtml(String value);
 
     /**
-     * Creates a JSON response builder.
+     * Creates a UTF-8 JSON response builder.
      *
      * @param value
      *     the JSON content.
@@ -142,7 +142,7 @@ public interface ResponseFactory {
     ResponseBuilder fromJson(String value);
 
     /**
-     * Creates an XML response builder.
+     * Creates a UTF-8 XML response builder.
      *
      * @param value
      *     the XML content.
