@@ -86,13 +86,15 @@ final class RequestParser {
         ) {
             throw exception;
         } catch (ServerException exception) {
-            if (exception.getStatus().isPresent()) {
-                throw exception;
-            }
+            final HttpStatus status = exception
+                .getStatus()
+                .orElse(HttpStatus.BAD_REQUEST);
 
+            // Parser diagnostics can contain request data. Keep them as the
+            // server-side cause and expose only the standard status reason.
             throw new ServerException(
-                HttpStatus.BAD_REQUEST,
-                exception.getMessage(),
+                status,
+                status.getReason(),
                 exception
             );
         }

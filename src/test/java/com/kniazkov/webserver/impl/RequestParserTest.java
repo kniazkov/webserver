@@ -6,6 +6,7 @@ package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.ContentType;
 import com.kniazkov.webserver.HttpMethod;
+import com.kniazkov.webserver.HttpStatus;
 import com.kniazkov.webserver.HttpVersion;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.Request;
@@ -13,6 +14,7 @@ import com.kniazkov.webserver.ServerException;
 import com.kniazkov.webserver.UploadedFile;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -545,6 +547,88 @@ final class RequestParserTest {
     }
 
     /**
+     * Tests the public status and message assigned to request parsing errors.
+     * Diagnostic details must remain available only as the exception cause.
+     */
+    @Test
+    void clientErrorMapping() {
+        assertClientError(
+            HttpStatus.BAD_REQUEST,
+            "Invalid HTTP header: X-Diagnostic-Marker",
+            () -> parse(
+                "GET / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "X-Diagnostic-Marker\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertClientError(
+            HttpStatus.NOT_IMPLEMENTED,
+            "Unsupported HTTP method: DIAGNOSTIC-METHOD",
+            () -> parse(
+                "DIAGNOSTIC-METHOD / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertClientError(
+            HttpStatus.HTTP_VERSION_NOT_SUPPORTED,
+            "Unsupported HTTP version: HTTP/9.9-DIAGNOSTIC",
+            () -> parse(
+                "GET / HTTP/9.9-DIAGNOSTIC\r\n"
+                    + "Host: localhost\r\n"
+                    + "\r\n"
+            )
+        );
+
+        assertClientError(
+            HttpStatus.NOT_IMPLEMENTED,
+            "Transfer-Encoding is not supported",
+            () -> parse(
+                "POST / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Transfer-Encoding: chunked\r\n"
+                    + "\r\n"
+            )
+        );
+
+        final Options requestLimit = new Options.Builder()
+            .setMaxRequestSize(64)
+            .setMaxHeaderSize(64)
+            .build();
+
+        assertClientError(
+            HttpStatus.PAYLOAD_TOO_LARGE,
+            "Maximum HTTP request size exceeded",
+            () -> parse(
+                "POST / HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Content-Length: 100\r\n"
+                    + "\r\n",
+                requestLimit
+            )
+        );
+
+        final Options headerLimit = new Options.Builder()
+            .setMaxRequestSize(128)
+            .setMaxHeaderSize(32)
+            .build();
+
+        assertClientError(
+            HttpStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
+            "Maximum HTTP header size exceeded",
+            () -> parse(
+                "GET / HTTP/1.1\r\n"
+                    + "Host: diagnostic.example\r\n"
+                    + "\r\n",
+                headerLimit
+            )
+        );
+    }
+
+    /**
      * Parses an HTTP request.
      *
      * @param value
@@ -579,6 +663,32 @@ final class RequestParserTest {
             new StringByteSource(value),
             options
         );
+    }
+
+    /**
+     * Verifies one parser error exposed to an HTTP client.
+     *
+     * @param status
+     *     the expected response status.
+     * @param diagnostic
+     *     the expected server-side diagnostic message.
+     * @param action
+     *     the parsing action.
+     */
+    private static void assertClientError(
+        final HttpStatus status,
+        final String diagnostic,
+        final Executable action
+    ) {
+        final ServerException exception = assertThrows(
+            ServerException.class,
+            action
+        );
+
+        assertEquals(status, exception.getStatus().orElseThrow());
+        assertEquals(status.getReason(), exception.getMessage());
+        assertInstanceOf(ServerException.class, exception.getCause());
+        assertEquals(diagnostic, exception.getCause().getMessage());
     }
 
     /**
