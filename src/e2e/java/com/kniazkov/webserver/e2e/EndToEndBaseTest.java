@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -213,6 +214,19 @@ abstract class EndToEndBaseTest {
     protected final String getBaseUrl() {
         ensureServerStarted();
         return "http://127.0.0.1:" + port;
+    }
+
+    /**
+     * Returns the actual address of the running server listener.
+     *
+     * @return
+     *     the local bind address.
+     * @throws IllegalStateException
+     *     if the server has not been started.
+     */
+    protected final InetAddress getBindAddress() {
+        ensureServerStarted();
+        return server.getBindAddress();
     }
 
     /**

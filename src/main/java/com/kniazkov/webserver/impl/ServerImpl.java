@@ -17,6 +17,7 @@ import javax.net.ssl.SSLContext;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -170,6 +171,14 @@ public final class ServerImpl implements Server {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public InetAddress getBindAddress() {
+        return serverSocket.getInetAddress();
+    }
+
+    /**
      * Creates the listening server socket.
      *
      * @param options
@@ -185,7 +194,7 @@ public final class ServerImpl implements Server {
 
         if (options.getSslOptions().isPresent()) {
             return createSslServerSocket(
-                options.getPort(),
+                options,
                 options.getSslOptions().get()
             );
         }
@@ -193,7 +202,11 @@ public final class ServerImpl implements Server {
         try {
             return ServerSocketFactory
                 .getDefault()
-                .createServerSocket(options.getPort());
+                .createServerSocket(
+                    options.getPort(),
+                    options.getBacklog(),
+                    options.getBindAddress().orElse(null)
+                );
         } catch (IOException exception) {
             throw new ServerException(
                 "Cannot create server socket on port "
@@ -206,9 +219,9 @@ public final class ServerImpl implements Server {
     /**
      * Creates an SSL/TLS server socket.
      *
-     * @param port
-     *     the server port.
-     * @param options
+     * @param serverOptions
+     *     the server options.
+     * @param sslOptions
      *     the SSL/TLS options.
      * @return
      *     the SSL/TLS server socket.
@@ -216,24 +229,24 @@ public final class ServerImpl implements Server {
      *     if SSL initialization fails.
      */
     private static ServerSocket createSslServerSocket(
-        final int port,
-        final SslOptions options
+        final Options serverOptions,
+        final SslOptions sslOptions
     ) throws ServerException {
 
         final char[] storePassword =
-            options.getKeyStorePassword();
+            sslOptions.getKeyStorePassword();
 
         final char[] keyPassword =
-            options.getKeyPassword();
+            sslOptions.getKeyPassword();
 
         try {
             final KeyStore keyStore = KeyStore.getInstance(
-                options.getKeyStoreType().getValue()
+                sslOptions.getKeyStoreType().getValue()
             );
 
             try (
                 FileInputStream input =
-                    new FileInputStream(options.getKeyStoreFile())
+                    new FileInputStream(sslOptions.getKeyStoreFile())
             ) {
                 keyStore.load(
                     input,
@@ -253,7 +266,7 @@ public final class ServerImpl implements Server {
 
             final SSLContext context =
                 SSLContext.getInstance(
-                    options.getProtocol().getValue()
+                    sslOptions.getProtocol().getValue()
                 );
 
             context.init(
@@ -264,7 +277,11 @@ public final class ServerImpl implements Server {
 
             return context
                 .getServerSocketFactory()
-                .createServerSocket(port);
+                .createServerSocket(
+                    serverOptions.getPort(),
+                    serverOptions.getBacklog(),
+                    serverOptions.getBindAddress().orElse(null)
+                );
 
         } catch (
             IOException

@@ -7,6 +7,7 @@ package com.kniazkov.webserver;
 import com.kniazkov.webserver.impl.DefaultErrorPage;
 import com.kniazkov.webserver.impl.DefaultHandler;
 
+import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,6 +23,11 @@ public final class Options {
      * The default server port.
      */
     private static final int DEFAULT_PORT = 8000;
+
+    /**
+     * The default operating-system accept queue size.
+     */
+    private static final int DEFAULT_BACKLOG = 50;
 
     /**
      * The default root directory for static files.
@@ -96,6 +102,16 @@ public final class Options {
      * The server port.
      */
     private final int port;
+
+    /**
+     * The local address to bind, or {@code null} for all local addresses.
+     */
+    private final InetAddress bindAddress;
+
+    /**
+     * The requested operating-system accept queue size.
+     */
+    private final int backlog;
 
     /**
      * The root directory for static files.
@@ -180,6 +196,8 @@ public final class Options {
      */
     private Options(final Builder builder) {
         port = builder.port;
+        bindAddress = builder.bindAddress;
+        backlog = builder.backlog;
         wwwRoot = builder.wwwRoot;
         maxHeaderSize = builder.maxHeaderSize;
         maxFileSize = builder.maxFileSize;
@@ -205,6 +223,27 @@ public final class Options {
      */
     public int getPort() {
         return port;
+    }
+
+    /**
+     * Returns the local address to which the server binds.
+     *
+     * @return
+     *     the bind address, or an empty optional to bind to every local
+     *     address.
+     */
+    public Optional<InetAddress> getBindAddress() {
+        return Optional.ofNullable(bindAddress);
+    }
+
+    /**
+     * Returns the requested operating-system accept queue size.
+     *
+     * @return
+     *     the listen backlog.
+     */
+    public int getBacklog() {
+        return backlog;
     }
 
     /**
@@ -374,6 +413,16 @@ public final class Options {
         private int port = DEFAULT_PORT;
 
         /**
+         * The local address to bind, or {@code null} for all local addresses.
+         */
+        private InetAddress bindAddress;
+
+        /**
+         * The requested operating-system accept queue size.
+         */
+        private int backlog = DEFAULT_BACKLOG;
+
+        /**
          * The root directory for static files.
          */
         private String wwwRoot = DEFAULT_WWW_ROOT;
@@ -477,6 +526,49 @@ public final class Options {
             }
 
             port = value;
+            return this;
+        }
+
+        /**
+         * Sets the local address to which the server binds.
+         * <p>
+         * If this option is not set, the server listens on every local
+         * address.
+         *
+         * @param value
+         *     the local bind address.
+         * @return
+         *     this builder.
+         * @throws NullPointerException
+         *     if the value is {@code null}.
+         */
+        public Builder setBindAddress(final InetAddress value) {
+            bindAddress = Objects.requireNonNull(
+                value,
+                "Bind address must not be null"
+            );
+            return this;
+        }
+
+        /**
+         * Sets the requested maximum length of the operating-system queue for
+         * connections awaiting acceptance.
+         *
+         * @param value
+         *     the listen backlog.
+         * @return
+         *     this builder.
+         * @throws IllegalArgumentException
+         *     if the value is not positive.
+         */
+        public Builder setBacklog(final int value) {
+            if (value < 1) {
+                throw new IllegalArgumentException(
+                    "Listen backlog must be positive"
+                );
+            }
+
+            backlog = value;
             return this;
         }
 

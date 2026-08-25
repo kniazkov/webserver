@@ -101,6 +101,8 @@ Configuration is performed through `Options.Builder`, so the basic startup code 
 ```java
 final Options options = new Options.Builder()
     .setPort(8080)
+    .setBindAddress(InetAddress.getLoopbackAddress())
+    .setBacklog(128)
     .setWwwRoot("public")
     .build();
 
@@ -697,6 +699,8 @@ The main configuration options include:
 | Option                    | Purpose                                                     |
 | ------------------------- | ----------------------------------------------------------- |
 | `port`                    | TCP port on which the server listens                        |
+| `bindAddress`             | Local address on which the server listens                   |
+| `backlog`                 | Requested operating-system accept queue size                |
 | `wwwRoot`                 | Root directory used for static files                        |
 | `maxRequestSize`          | Maximum size of a complete HTTP request                     |
 | `maxFileSize`             | Maximum size of an individual uploaded file                 |
@@ -737,6 +741,24 @@ final Options options = new Options.Builder()
 ```
 
 `maxWorkers` limits the number of connections actively processed at the same time. Persistent HTTP connections occupy a worker for their lifetime, so the limit also prevents large numbers of idle or slow clients from consuming server resources without bound.
+
+By default, the server binds to the wildcard address and is therefore reachable
+through every local network interface allowed by the host firewall. Applications
+that are intended to be reached only through a reverse proxy on the same host
+should bind explicitly to a loopback address:
+
+```java
+final Options options = new Options.Builder()
+    .setBindAddress(InetAddress.getLoopbackAddress())
+    .build();
+```
+
+`backlog` is a request to the operating system for the maximum number of TCP
+connections waiting to be accepted. The operating system may cap or otherwise
+adjust it. It is separate from `maxWorkers`: when all workers are occupied, new
+connections remain in the operating-system accept queue until worker capacity is
+available. Stopping the server remains responsive while the worker limit is
+saturated.
 
 Most applications should start with the defaults and change individual settings only when there is a concrete reason to do so. Configuration options are limits and behavior controls, not a checklist that must be ceremonially filled out before the server agrees to function.
 
