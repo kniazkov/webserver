@@ -685,6 +685,7 @@ final Options options = new Options.Builder()
     .setWwwRoot("public")
     .setMaxWorkers(200)
     .setReadTimeout(Duration.ofSeconds(15))
+    .setWriteTimeout(Duration.ofSeconds(15))
     .setHandlerTimeout(Duration.ofSeconds(10))
     .setHandler(handler)
     .setErrorPage(errorPage)
@@ -706,6 +707,7 @@ The main configuration options include:
 | `maxHeaderSize`           | Maximum size of HTTP headers                                |
 | `maxWorkers`              | Maximum number of client connections processed concurrently |
 | `readTimeout`             | Maximum time the server waits for additional request data   |
+| `writeTimeout`            | Maximum time allowed for writing one complete response      |
 | `handlerTimeout`          | Maximum time allowed for application request handling       |
 | `handler`                 | Application-specific request handler                        |
 | `errorPage`               | Generator used for standard HTML error pages                |
@@ -729,6 +731,7 @@ Connection and handler timeouts use `Duration`, making their meaning explicit:
 ```java
 final Options options = new Options.Builder()
     .setReadTimeout(Duration.ofSeconds(20))
+    .setWriteTimeout(Duration.ofSeconds(20))
     .setHandlerTimeout(Duration.ofSeconds(5))
     .build();
 ```
@@ -873,6 +876,18 @@ final Options options = new Options.Builder()
 ```
 
 If the timeout expires while the server is waiting for request data, the connection is closed.
+
+### Write Timeout
+
+A client that stops reading a response is not allowed to occupy a worker indefinitely either:
+
+```java
+final Options options = new Options.Builder()
+    .setWriteTimeout(Duration.ofSeconds(15))
+    .build();
+```
+
+The timeout covers writing and flushing one complete response. If it expires, the server closes the client connection immediately. The worker then returns to the pool and can process another connection; no error response is attempted on the connection that has already stopped consuming output.
 
 ### Handler Timeout
 

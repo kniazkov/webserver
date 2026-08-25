@@ -15,7 +15,6 @@ import com.kniazkov.webserver.ResponseFactory;
 import com.kniazkov.webserver.ServerException;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.file.NoSuchFileException;
@@ -90,7 +89,11 @@ final class Worker implements Runnable {
             configureSocket();
 
             final ByteSource source = new SocketByteSource(socket);
-            final OutputStream output = socket.getOutputStream();
+            final SocketResponseWriter writer =
+                new SocketResponseWriter(
+                    socket,
+                    options.getWriteTimeout()
+                );
 
             while (true) {
                 final Request request;
@@ -102,7 +105,7 @@ final class Worker implements Runnable {
                 } catch (ConnectionTimeoutException exception) {
                     return;
                 } catch (ServerException exception) {
-                    writeError(output, exception, HttpVersion.HTTP_1_1);
+                    writeError(writer, exception, HttpVersion.HTTP_1_1);
                     return;
                 }
 
@@ -112,7 +115,7 @@ final class Worker implements Runnable {
                     final Response response = process(request);
 
                     writeResponse(
-                        output,
+                        writer,
                         response,
                         request.getHeaders().getVersion(),
                         keepAlive
@@ -272,8 +275,8 @@ final class Worker implements Runnable {
     /**
      * Writes an HTTP response.
      *
-     * @param output
-     *     the socket output stream.
+     * @param writer
+     *     the bounded socket response writer.
      * @param response
      *     the response.
      * @param version
@@ -286,26 +289,25 @@ final class Worker implements Runnable {
      *     if the response contains invalid application headers.
      */
     private static void writeResponse(
-        final OutputStream output,
+        final SocketResponseWriter writer,
         final Response response,
         final HttpVersion version,
         final boolean keepAlive
     ) throws IOException, ServerException {
-        output.write(
+        writer.write(
             ResponseSerializer.serialize(
                 response,
                 version,
                 keepAlive
             )
         );
-        output.flush();
     }
 
     /**
      * Writes an internal server error response.
      *
-     * @param output
-     *     the socket output stream.
+     * @param writer
+     *     the bounded socket response writer.
      * @param exception
      *     the error.
      * @param version
@@ -316,12 +318,12 @@ final class Worker implements Runnable {
      *     if the generated response is invalid.
      */
     private void writeError(
-        final OutputStream output,
+        final SocketResponseWriter writer,
         final ServerException exception,
         final HttpVersion version
     ) throws IOException, ServerException {
         writeResponse(
-            output,
+            writer,
             responseFactory.error(exception),
             version,
             false
