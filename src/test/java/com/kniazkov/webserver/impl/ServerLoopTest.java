@@ -201,6 +201,110 @@ final class ServerLoopTest {
     }
 
     /**
+     * Tests that a timed-out handler cannot retain a worker permit even when
+     * it deliberately catches and ignores interruption.
+     */
+    @Test
+    void handlerIgnoringInterruptDoesNotRetainWorker() throws Exception {
+        final CountDownLatch entered = new CountDownLatch(1);
+        final CountDownLatch interrupted = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final CountDownLatch completed = new CountDownLatch(1);
+
+        final Handler handler = (request, environment) -> {
+            if (!"/stubborn".equals(request.getPath().getPath())) {
+                return environment
+                    .getResponseFactory()
+                    .fromText("available")
+                    .build();
+            }
+
+            entered.countDown();
+
+            while (release.getCount() != 0) {
+                try {
+                    release.await();
+                } catch (InterruptedException ignored) {
+                    /*
+                     * Deliberately violate the handler contract to reproduce
+                     * uncooperative application code.
+                     */
+                    interrupted.countDown();
+                }
+            }
+
+            completed.countDown();
+            return environment
+                .getResponseFactory()
+                .fromText("too late")
+                .build();
+        };
+
+        final Options options = new Options.Builder()
+            .setHandler(handler)
+            .setMaxWorkers(1)
+            .setHandlerTimeout(Duration.ofMillis(100))
+            .build();
+
+        final TestServer server = start(options);
+
+        try (server; Socket stubborn = connect(server)) {
+            send(
+                stubborn,
+                "GET /stubborn HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            assertTrue(
+                entered.await(
+                    TIMEOUT.toMillis(),
+                    TimeUnit.MILLISECONDS
+                )
+            );
+
+            final String timeoutResponse = readAll(stubborn);
+            assertTrue(
+                timeoutResponse.startsWith(
+                    "HTTP/1.1 503 Service Unavailable"
+                )
+            );
+            assertTrue(
+                interrupted.await(
+                    TIMEOUT.toMillis(),
+                    TimeUnit.MILLISECONDS
+                )
+            );
+
+            try (Socket healthy = connect(server)) {
+                send(
+                    healthy,
+                    "GET /health HTTP/1.1\r\n"
+                        + "Host: localhost\r\n"
+                        + "Connection: close\r\n"
+                        + "\r\n"
+                );
+
+                final String healthyResponse = readAll(healthy);
+                assertTrue(healthyResponse.startsWith("HTTP/1.1 200"));
+                assertTrue(healthyResponse.endsWith("available"));
+            }
+        } finally {
+            release.countDown();
+            if (entered.getCount() == 0) {
+                assertTrue(
+                    completed.await(
+                        TIMEOUT.toMillis(),
+                        TimeUnit.MILLISECONDS
+                    )
+                );
+            }
+            server.close();
+        }
+    }
+
+    /**
      * Tests stopping the accept loop while every worker permit is occupied.
      */
     @Test
