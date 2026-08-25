@@ -92,7 +92,7 @@
                 <version>${compiler-plugin.version}</version>
                 <configuration>
                     <compilerArgs>
-                        <arg>-Xlint:all</arg>
+                        <arg>-Xlint:all,-try</arg>
                         <arg>-Werror</arg>
                     </compilerArgs>
                 </configuration>

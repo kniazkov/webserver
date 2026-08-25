@@ -4,6 +4,10 @@ This document describes the conventions used by the current implementation.
 New code must pass `mvn verify`; the rules that can be checked mechanically are
 also enforced by Checkstyle and the Java compiler in that build.
 
+All Java lint categories except `try` are treated as errors. The `try` category
+is excluded because it reports false positives for test fixtures whose cleanup
+can propagate `InterruptedException`.
+
 ## General formatting
 
 - Use UTF-8, Unix line endings, four spaces for indentation, and no tabs.
