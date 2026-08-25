@@ -81,6 +81,12 @@ public final class Options {
         Duration.ofSeconds(30);
 
     /**
+     * The default response write timeout.
+     */
+    private static final Duration DEFAULT_WRITE_TIMEOUT =
+        Duration.ofSeconds(30);
+
+    /**
      * The default request handler timeout.
      */
     private static final Duration DEFAULT_HANDLER_TIMEOUT =
@@ -142,6 +148,11 @@ public final class Options {
     private final Duration readTimeout;
 
     /**
+     * The maximum time allowed for writing one response.
+     */
+    private final Duration writeTimeout;
+
+    /**
      * The maximum request handler execution time.
      */
     private final Duration handlerTimeout;
@@ -179,6 +190,7 @@ public final class Options {
         maxMultipartHeaderSize = builder.maxMultipartHeaderSize;
         maxWorkers = builder.maxWorkers;
         readTimeout = builder.readTimeout;
+        writeTimeout = builder.writeTimeout;
         handlerTimeout = builder.handlerTimeout;
         errorPage = builder.errorPage;
         handler = builder.handler;
@@ -302,6 +314,16 @@ public final class Options {
     }
 
     /**
+     * Returns the maximum time allowed for writing one response.
+     *
+     * @return
+     *     the response write timeout.
+     */
+    public Duration getWriteTimeout() {
+        return writeTimeout;
+    }
+
+    /**
      * Returns the maximum request handler execution time.
      *
      * @return
@@ -402,6 +424,11 @@ public final class Options {
          * The socket read timeout.
          */
         private Duration readTimeout = DEFAULT_READ_TIMEOUT;
+
+        /**
+         * The maximum time allowed for writing one response.
+         */
+        private Duration writeTimeout = DEFAULT_WRITE_TIMEOUT;
 
         /**
          * The maximum request handler execution time.
@@ -666,6 +693,28 @@ public final class Options {
         public Builder setReadTimeout(final Duration value) {
             validateTimeout(value, "Read timeout");
             readTimeout = value;
+            return this;
+        }
+
+        /**
+         * Sets the maximum time allowed for writing one response.
+         * <p>
+         * If the timeout expires, the client connection is closed so that a
+         * client which has stopped reading cannot occupy a worker
+         * indefinitely.
+         *
+         * @param value
+         *     the response write timeout.
+         * @return
+         *     this builder.
+         * @throws NullPointerException
+         *     if the value is {@code null}.
+         * @throws IllegalArgumentException
+         *     if the value is zero or negative.
+         */
+        public Builder setWriteTimeout(final Duration value) {
+            validateTimeout(value, "Write timeout");
+            writeTimeout = value;
             return this;
         }
 
