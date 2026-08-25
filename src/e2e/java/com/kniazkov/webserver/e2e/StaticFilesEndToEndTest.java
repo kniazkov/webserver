@@ -7,6 +7,8 @@ package com.kniazkov.webserver.e2e;
 import com.kniazkov.webserver.Handler;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -14,6 +16,7 @@ import java.nio.file.Path;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -242,5 +245,42 @@ final class StaticFilesEndToEndTest extends EndToEndBaseTest {
         assertTrue(
             staticFile.text().contains("Static")
         );
+    }
+
+    /**
+     * Tests that the running server does not expose a file through a symbolic
+     * directory that points outside the static root.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    void symlinkEscapeIsNotServed() throws Exception {
+        final Path outside = Files.createTempDirectory(
+            "webserver-e2e-outside-"
+        );
+
+        try {
+            Files.writeString(
+                outside.resolve("secret.txt"),
+                "E2E outside secret",
+                StandardCharsets.UTF_8
+            );
+            Files.createSymbolicLink(
+                wwwRoot.resolve("escape"),
+                outside
+            );
+
+            startServer();
+
+            final var response = page.request()
+                .get(url("/escape/secret.txt"));
+
+            assertEquals(404, response.status());
+            assertFalse(
+                response.text().contains("E2E outside secret")
+            );
+        } finally {
+            Files.deleteIfExists(outside.resolve("secret.txt"));
+            Files.deleteIfExists(outside);
+        }
     }
 }

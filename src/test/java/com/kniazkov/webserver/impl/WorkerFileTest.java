@@ -7,6 +7,8 @@ package com.kniazkov.webserver.impl;
 import com.kniazkov.webserver.Options;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
@@ -14,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -135,6 +138,96 @@ final class WorkerFileTest extends WorkerBaseTest {
                 "text/html",
                 response.header("Content-Type")
             );
+        }
+    }
+
+    /**
+     * Tests serving a symbolic link whose target remains inside the WWW root.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    void internalSymlink() throws Exception {
+        Files.writeString(
+            root.resolve("target.txt"),
+            "Internal target",
+            StandardCharsets.UTF_8
+        );
+        Files.createSymbolicLink(
+            root.resolve("link.txt"),
+            Path.of("target.txt")
+        );
+
+        final Options options = new Options.Builder()
+            .setWwwRoot(root.toString())
+            .build();
+
+        try (Connection connection = connect(options)) {
+            send(
+                connection.socket(),
+                "GET /link.txt HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Connection: close\r\n"
+                    + "\r\n"
+            );
+
+            final TestResponse response =
+                readResponse(connection.socket());
+
+            assertTrue(
+                response.statusLine().startsWith("HTTP/1.1 200")
+            );
+            assertEquals("Internal target", response.text());
+        }
+    }
+
+    /**
+     * Tests that a symbolic directory cannot expose a file outside the WWW
+     * root.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    void externalSymlink() throws Exception {
+        final Path outside = Files.createTempDirectory(
+            "webserver-outside-"
+        );
+
+        try {
+            Files.writeString(
+                outside.resolve("secret.txt"),
+                "Outside secret",
+                StandardCharsets.UTF_8
+            );
+            Files.createSymbolicLink(
+                root.resolve("escape"),
+                outside
+            );
+
+            final Options options = new Options.Builder()
+                .setWwwRoot(root.toString())
+                .build();
+
+            try (Connection connection = connect(options)) {
+                send(
+                    connection.socket(),
+                    "GET /escape/secret.txt HTTP/1.1\r\n"
+                        + "Host: localhost\r\n"
+                        + "Connection: close\r\n"
+                        + "\r\n"
+                );
+
+                final TestResponse response =
+                    readResponse(connection.socket());
+
+                assertTrue(
+                    response.statusLine().startsWith("HTTP/1.1 404")
+                );
+                assertFalse(
+                    response.text().contains("Outside secret")
+                );
+            }
+        } finally {
+            Files.deleteIfExists(outside.resolve("secret.txt"));
+            Files.deleteIfExists(outside);
         }
     }
 }

@@ -482,6 +482,13 @@ return factory.noResponse();
 
 The application handles `/api/version`; everything else is left to the server's default processing.
 
+Static-file fallback resolves both the configured `wwwRoot` and the requested
+file to their real filesystem paths. Symbolic links are followed only when
+their final target remains inside the real `wwwRoot`; a dangling link or a
+link that escapes the root produces `404 Not Found`. This containment policy
+does not restrict files deliberately returned by application code through
+`ResponseFactory.fromFile`.
+
 The result is deliberately uncomplicated: inspect a `Request`, use a `ResponseFactory`, return a `Response`. No annotations, reflection tricks, controller hierarchies, or other ceremonial machinery are required.
 
 ## Uploading Files
