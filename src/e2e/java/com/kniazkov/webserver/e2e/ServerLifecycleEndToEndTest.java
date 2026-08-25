@@ -57,7 +57,9 @@ final class ServerLifecycleEndToEndTest
             Socket ignored =
                 new Socket("127.0.0.1", port)
         ) {
-            // Connected successfully.
+            /*
+             * Connected successfully.
+             */
         }
 
         stopServer();
@@ -69,7 +71,9 @@ final class ServerLifecycleEndToEndTest
                     Socket ignored =
                         new Socket("127.0.0.1", port)
                 ) {
-                    // Must not connect.
+                    /*
+                     * Must not connect.
+                     */
                 }
             }
         );

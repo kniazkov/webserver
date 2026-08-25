@@ -17,6 +17,11 @@ import com.kniazkov.webserver.ServerException;
 final class ConnectionTimeoutException extends ServerException {
 
     /**
+     * The serialization version.
+     */
+    private static final long serialVersionUID = 1L;
+
+    /**
      * Creates an exception indicating that the client connection timed out.
      *
      * @param cause

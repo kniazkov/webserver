@@ -84,7 +84,9 @@ final class MemoryUploadedData implements StoredUploadedData {
 
     @Override
     public void close() {
-        // No external resources.
+        /*
+         * No external resources.
+         */
     }
 
     /**

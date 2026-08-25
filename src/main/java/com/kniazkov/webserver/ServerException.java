@@ -17,6 +17,11 @@ import java.util.Optional;
 public class ServerException extends Exception {
 
     /**
+     * The serialization version.
+     */
+    private static final long serialVersionUID = 1L;
+
+    /**
      * The HTTP status to return to the client, if this exception represents a
      * client-visible HTTP error.
      */
