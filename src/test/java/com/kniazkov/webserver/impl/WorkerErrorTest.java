@@ -37,7 +37,7 @@ final class WorkerErrorTest extends WorkerBaseTest {
         try (Connection connection = connect(options)) {
             send(
                 connection.socket(),
-                "THIS IS NOT HTTP\r\n"
+                "THIS-IS-A-DIAGNOSTIC-MARKER\r\n"
                     + "\r\n"
             );
 
@@ -46,6 +46,12 @@ final class WorkerErrorTest extends WorkerBaseTest {
 
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 400")
+            );
+            assertTrue(response.text().contains("Bad Request"));
+            assertFalse(
+                response.text().contains(
+                    "THIS-IS-A-DIAGNOSTIC-MARKER"
+                )
             );
 
             connection.worker().join(TIMEOUT);
@@ -346,6 +352,14 @@ final class WorkerErrorTest extends WorkerBaseTest {
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 413")
             );
+            assertTrue(
+                response.text().contains("Payload Too Large")
+            );
+            assertFalse(
+                response.text().contains(
+                    "Maximum HTTP request size exceeded"
+                )
+            );
         }
     }
 
@@ -371,6 +385,10 @@ final class WorkerErrorTest extends WorkerBaseTest {
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 501")
             );
+            assertTrue(response.text().contains("Not Implemented"));
+            assertFalse(
+                response.text().contains("Unsupported HTTP method")
+            );
         }
 
         try (Connection connection = connect(options)) {
@@ -387,6 +405,14 @@ final class WorkerErrorTest extends WorkerBaseTest {
 
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 505")
+            );
+            assertTrue(
+                response.text().contains(
+                    "HTTP Version Not Supported"
+                )
+            );
+            assertFalse(
+                response.text().contains("Unsupported HTTP version")
             );
         }
 
@@ -406,6 +432,12 @@ final class WorkerErrorTest extends WorkerBaseTest {
             assertTrue(
                 response.statusLine().startsWith("HTTP/1.1 501")
             );
+            assertFalse(
+                response.text().contains(
+                    "Transfer-Encoding is not supported"
+                )
+            );
         }
     }
+
 }
