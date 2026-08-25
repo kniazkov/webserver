@@ -9,11 +9,13 @@ import com.kniazkov.webserver.SslOptions;
 
 import org.junit.jupiter.api.Test;
 
+import java.net.InetAddress;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.Objects;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * End-to-end tests for HTTPS support.
@@ -41,7 +43,12 @@ final class HttpsEndToEndTest extends EndToEndBaseTest {
                 .setPassword("test-password")
                 .build();
 
-            builder.setSslOptions(sslOptions);
+            builder
+                .setSslOptions(sslOptions)
+                .setBindAddress(
+                    InetAddress.getByName("127.0.0.1")
+                )
+                .setBacklog(32);
         } catch (Exception exception) {
             throw new IllegalStateException(
                 "Cannot configure test SSL certificate",
@@ -62,6 +69,11 @@ final class HttpsEndToEndTest extends EndToEndBaseTest {
         );
 
         startServer();
+
+        assertEquals(
+            InetAddress.getByName("127.0.0.1"),
+            getBindAddress()
+        );
 
         page.navigate(
             "https://127.0.0.1:"

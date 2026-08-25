@@ -201,6 +201,64 @@ final class ServerLoopTest {
     }
 
     /**
+     * Tests stopping the accept loop while every worker permit is occupied.
+     */
+    @Test
+    void stopsWhileWorkersAreSaturated() throws Exception {
+        final CountDownLatch entered = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+
+        final Handler handler = (request, environment) -> {
+            entered.countDown();
+
+            try {
+                release.await();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new ServerException(
+                    "Handler interrupted",
+                    exception
+                );
+            }
+
+            return environment
+                .getResponseFactory()
+                .fromText("OK")
+                .build();
+        };
+
+        final Options options = new Options.Builder()
+            .setHandler(handler)
+            .setMaxWorkers(1)
+            .setHandlerTimeout(Duration.ofSeconds(5))
+            .build();
+
+        final TestServer server = start(options);
+
+        try (
+            Socket active = connect(server);
+            Socket queued = connect(server)
+        ) {
+            sendRequest(active);
+
+            assertTrue(
+                entered.await(
+                    TIMEOUT.toMillis(),
+                    TimeUnit.MILLISECONDS
+                )
+            );
+
+            sendRequest(queued);
+            server.close();
+
+            assertFalse(server.thread().isAlive());
+        } finally {
+            release.countDown();
+            server.close();
+        }
+    }
+
+    /**
      * Tests normal termination when the listening socket is closed.
      */
     @Test

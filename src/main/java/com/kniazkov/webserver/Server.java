@@ -4,6 +4,8 @@
 
 package com.kniazkov.webserver;
 
+import java.net.InetAddress;
+
 /**
  * Represents a running web server.
  * <p>
@@ -45,4 +47,12 @@ public interface Server {
      *     the actual port number.
      */
     int getPort();
+
+    /**
+     * Returns the local address on which the server is listening.
+     *
+     * @return
+     *     the actual local bind address.
+     */
+    InetAddress getBindAddress();
 }
