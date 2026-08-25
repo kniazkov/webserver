@@ -34,6 +34,16 @@ final class RequestByteSource implements ByteSource {
     private long count;
 
     /**
+     * Returns the number of request bytes read so far.
+     *
+     * @return
+     *     the byte count.
+     */
+    long getCount() {
+        return count;
+    }
+
+    /**
      * Creates a limited request byte source.
      *
      * @param source

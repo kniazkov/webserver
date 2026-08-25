@@ -129,7 +129,7 @@ final class WorkerSimpleTest extends WorkerBaseTest {
             assertEquals(
                 body,
                 new String(
-                    request.getBody(),
+                    request.getBody().readAllBytes(),
                     StandardCharsets.US_ASCII
                 )
             );

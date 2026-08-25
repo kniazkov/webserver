@@ -5,8 +5,11 @@
 package com.kniazkov.webserver.impl;
 
 import com.kniazkov.webserver.ContentType;
+import com.kniazkov.webserver.ServerException;
+import com.kniazkov.webserver.UploadedData;
 import com.kniazkov.webserver.UploadedFile;
 
+import java.io.InputStream;
 import java.util.Objects;
 
 /**
@@ -27,7 +30,7 @@ final class UploadedFileImpl implements UploadedFile {
     /**
      * The uploaded file data.
      */
-    private final byte[] data;
+    private final UploadedData data;
 
     /**
      * Creates an uploaded file.
@@ -44,14 +47,14 @@ final class UploadedFileImpl implements UploadedFile {
     UploadedFileImpl(
         final String name,
         final ContentType contentType,
-        final byte[] data
+        final UploadedData data
     ) {
         this.name = Objects.requireNonNull(name, "name");
         this.contentType = Objects.requireNonNull(
             contentType,
             "contentType"
         );
-        this.data = Objects.requireNonNull(data, "data").clone();
+        this.data = Objects.requireNonNull(data, "data");
     }
 
     @Override
@@ -65,7 +68,12 @@ final class UploadedFileImpl implements UploadedFile {
     }
 
     @Override
-    public byte[] getData() {
-        return data.clone();
+    public long getSize() {
+        return data.getSize();
+    }
+
+    @Override
+    public InputStream openStream() throws ServerException {
+        return data.openStream();
     }
 }

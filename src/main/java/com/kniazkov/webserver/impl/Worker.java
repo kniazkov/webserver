@@ -106,15 +106,23 @@ final class Worker implements Runnable {
                     return;
                 }
 
-                final Response response = process(request);
+                final boolean keepAlive;
 
-                writeResponse(
-                    output,
-                    response,
-                    request.getHeaders().getVersion()
-                );
+                try {
+                    final Response response = process(request);
 
-                if (!isKeepAlive(request)) {
+                    writeResponse(
+                        output,
+                        response,
+                        request.getHeaders().getVersion()
+                    );
+
+                    keepAlive = isKeepAlive(request);
+                } finally {
+                    closeRequest(request);
+                }
+
+                if (!keepAlive) {
                     return;
                 }
             }
@@ -296,6 +304,21 @@ final class Worker implements Runnable {
             responseFactory.error(exception),
             version
         );
+    }
+
+    /**
+     * Releases storage owned by a parsed request.
+     *
+     * @param request
+     *     the parsed request.
+     * @throws ServerException
+     *     if request storage cannot be released.
+     */
+    private static void closeRequest(final Request request)
+        throws ServerException {
+        if (request instanceof ManagedRequest managed) {
+            managed.close();
+        }
     }
 
     /**

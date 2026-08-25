@@ -20,6 +20,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -85,7 +86,7 @@ final class RequestParserTest {
 
         assertTrue(request.getForm().isEmpty());
         assertTrue(request.getFiles().isEmpty());
-        assertArrayEquals(new byte[0], request.getBody());
+        assertArrayEquals(new byte[0], request.getBody().readAllBytes());
     }
 
     /**
@@ -122,7 +123,7 @@ final class RequestParserTest {
 
         assertArrayEquals(
             bytes(body),
-            request.getBody()
+            request.getBody().readAllBytes()
         );
 
         assertTrue(request.getFiles().isEmpty());
@@ -170,11 +171,11 @@ final class RequestParserTest {
 
         assertEquals("hello.txt", file.getName());
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
-        assertArrayEquals(bytes("Hello!"), file.getData());
+        assertArrayEquals(bytes("Hello!"), file.readAllBytes());
 
         assertArrayEquals(
             bytes(body),
-            request.getBody()
+            request.getBody().readAllBytes()
         );
     }
 
@@ -194,9 +195,113 @@ final class RequestParserTest {
                 + body
         );
 
-        assertArrayEquals(bytes(body), request.getBody());
+        assertArrayEquals(bytes(body), request.getBody().readAllBytes());
         assertTrue(request.getForm().isEmpty());
         assertTrue(request.getFiles().isEmpty());
+    }
+
+    /**
+     * Tests that a body larger than the in-memory threshold uses temporary
+     * storage and is released together with the request.
+     */
+    @Test
+    void temporaryBodyStorageLifecycle() throws ServerException {
+        final String body = "stored outside the heap";
+        final Options options = new Options.Builder()
+            .setMaxInMemoryBodySize(0)
+            .build();
+
+        final Request request = parse(
+            "POST /data HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Content-Length: " + bytes(body).length + "\r\n"
+                + "\r\n"
+                + body,
+            options
+        );
+
+        assertInstanceOf(
+            TemporaryFileUploadedData.class,
+            request.getBody()
+        );
+        assertArrayEquals(
+            bytes(body),
+            request.getBody().readAllBytes()
+        );
+
+        assertInstanceOf(ManagedRequest.class, request).close();
+
+        assertThrows(
+            ServerException.class,
+            request.getBody()::openStream
+        );
+    }
+
+    /**
+     * Tests that uploaded files are bounded views of the stored request body.
+     */
+    @Test
+    void multipartFileUsesRequestStorage() throws ServerException {
+        final String boundary = "storage-boundary";
+        final String body =
+            "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; "
+                + "name=\"file\"; filename=\"data.bin\"\r\n"
+                + "Content-Type: application/octet-stream\r\n"
+                + "\r\n"
+                + "file bytes\r\n"
+                + "--" + boundary + "--";
+
+        final Options options = new Options.Builder()
+            .setMaxInMemoryBodySize(0)
+            .build();
+
+        final Request request = parse(
+            "POST /upload HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Content-Type: multipart/form-data; boundary="
+                + boundary + "\r\n"
+                + "Content-Length: " + bytes(body).length + "\r\n"
+                + "\r\n"
+                + body,
+            options
+        );
+
+        final UploadedFile file = request
+            .getFiles()
+            .get("file")
+            .getFirst();
+
+        assertArrayEquals(bytes("file bytes"), file.readAllBytes());
+
+        assertInstanceOf(ManagedRequest.class, request).close();
+
+        assertThrows(ServerException.class, file::openStream);
+    }
+
+    /**
+     * Tests the independent decoded form data limit.
+     */
+    @Test
+    void formSizeLimit() {
+        final String body = "field=too-long";
+        final Options options = new Options.Builder()
+            .setMaxFormSize(4)
+            .build();
+
+        assertThrows(
+            ServerException.class,
+            () -> parse(
+                "POST /submit HTTP/1.1\r\n"
+                    + "Host: localhost\r\n"
+                    + "Content-Type: "
+                    + "application/x-www-form-urlencoded\r\n"
+                    + "Content-Length: " + bytes(body).length + "\r\n"
+                    + "\r\n"
+                    + body,
+                options
+            )
+        );
     }
 
     /**
@@ -366,7 +471,7 @@ final class RequestParserTest {
         );
         assertArrayEquals(
             bytes("hello"),
-            firstRequest.getBody()
+            firstRequest.getBody().readAllBytes()
         );
 
         assertEquals(
@@ -375,7 +480,7 @@ final class RequestParserTest {
         );
         assertArrayEquals(
             new byte[0],
-            secondRequest.getBody()
+            secondRequest.getBody().readAllBytes()
         );
     }
 
@@ -451,9 +556,28 @@ final class RequestParserTest {
      */
     private static Request parse(final String value)
         throws ServerException {
+        return parse(value, OPTIONS);
+    }
+
+    /**
+     * Parses an HTTP request using explicit options.
+     *
+     * @param value
+     *     the complete HTTP request.
+     * @param options
+     *     the server options.
+     * @return
+     *     the parsed request.
+     * @throws ServerException
+     *     if parsing fails.
+     */
+    private static Request parse(
+        final String value,
+        final Options options
+    ) throws ServerException {
         return RequestParser.parse(
             new StringByteSource(value),
-            OPTIONS
+            options
         );
     }
 

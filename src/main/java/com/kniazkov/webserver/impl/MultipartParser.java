@@ -24,6 +24,11 @@ final class MultipartParser {
     private final ByteSource source;
 
     /**
+     * The complete stored request body.
+     */
+    private final StoredUploadedData data;
+
+    /**
      * The multipart boundary.
      */
     private final byte[] boundary;
@@ -44,10 +49,22 @@ final class MultipartParser {
     private final RequestBuilder builder;
 
     /**
+     * The number of body bytes consumed by this parser.
+     */
+    private long position;
+
+    /**
+     * The total number of decoded form field bytes.
+     */
+    private long formSize;
+
+    /**
      * Creates a multipart parser.
      *
      * @param source
      *     the byte source.
+     * @param data
+     *     the stored request body.
      * @param boundary
      *     the multipart boundary.
      * @param options
@@ -57,11 +74,13 @@ final class MultipartParser {
      */
     private MultipartParser(
         final ByteSource source,
+        final StoredUploadedData data,
         final String boundary,
         final Options options,
         final RequestBuilder builder
     ) {
         this.source = source;
+        this.data = data;
         this.boundary = bytes("--" + boundary);
         this.dataBoundary = bytes("\r\n--" + boundary);
         this.options = options;
@@ -73,6 +92,8 @@ final class MultipartParser {
      *
      * @param source
      *     the byte source.
+     * @param data
+     *     the stored request body.
      * @param boundary
      *     the multipart boundary.
      * @param options
@@ -84,6 +105,7 @@ final class MultipartParser {
      */
     static void parse(
         final ByteSource source,
+        final StoredUploadedData data,
         final String boundary,
         final Options options,
         final RequestBuilder builder
@@ -94,6 +116,7 @@ final class MultipartParser {
 
         new MultipartParser(
             source,
+            data,
             boundary,
             options,
             builder
@@ -118,7 +141,10 @@ final class MultipartParser {
             if (headers.filename == null) {
                 builder.addForm(
                     headers.name,
-                    new String(part.data, StandardCharsets.UTF_8)
+                    new String(
+                        part.field,
+                        StandardCharsets.UTF_8
+                    )
                 );
             } else {
                 builder.addFile(
@@ -126,7 +152,7 @@ final class MultipartParser {
                     new UploadedFileImpl(
                         headers.filename,
                         headers.contentType,
-                        part.data
+                        data.slice(part.offset, part.length)
                     )
                 );
             }
@@ -145,7 +171,7 @@ final class MultipartParser {
      */
     private void readInitialBoundary() throws ServerException {
         for (byte expected : boundary) {
-            final int value = source.read();
+            final int value = read();
 
             if (value == -1 || (byte) value != expected) {
                 throw new ServerException(
@@ -257,10 +283,17 @@ final class MultipartParser {
      */
     private PartData readPartData(final boolean file)
         throws ServerException {
-        final ByteAccumulator accumulator = new ByteAccumulator();
+        final long start = position;
+        final ByteAccumulator accumulator = file
+            ? null
+            : new ByteAccumulator();
+
+        final BoundaryWindow window = new BoundaryWindow(
+            dataBoundary.length
+        );
 
         while (true) {
-            final int value = source.read();
+            final int value = read();
 
             if (value == -1) {
                 throw new ServerException(
@@ -268,24 +301,22 @@ final class MultipartParser {
                 );
             }
 
-            accumulator.append(value);
+            window.append(value);
 
-            if (
-                file
-                    && accumulator.size() - dataBoundary.length
-                    > options.getMaxFileSize()
-            ) {
-                throw new ServerException(
-                    HttpStatus.PAYLOAD_TOO_LARGE,
-                    "Maximum uploaded file size exceeded"
-                );
+            if (accumulator != null) {
+                accumulator.append(value);
             }
 
-            if (!accumulator.endsWith(dataBoundary)) {
+            validatePartSize(
+                position - start - dataBoundary.length,
+                file
+            );
+
+            if (!window.endsWith(dataBoundary)) {
                 continue;
             }
 
-            final int first = source.read();
+            final int first = read();
 
             if (first == -1) {
                 throw new ServerException(
@@ -293,7 +324,7 @@ final class MultipartParser {
                 );
             }
 
-            final int second = source.read();
+            final int second = read();
 
             if (second == -1) {
                 throw new ServerException(
@@ -305,12 +336,11 @@ final class MultipartParser {
                 first == Lexer.CR
                     && second == Lexer.LF
             ) {
-                accumulator.removeLast(dataBoundary.length);
-                validateFileSize(accumulator, file);
-
-                return new PartData(
-                    accumulator.toByteArray(),
-                    false
+                return createPartData(
+                    accumulator,
+                    start,
+                    false,
+                    file
                 );
             }
 
@@ -318,12 +348,11 @@ final class MultipartParser {
                 first == '-'
                     && second == '-'
             ) {
-                accumulator.removeLast(dataBoundary.length);
-                validateFileSize(accumulator, file);
-
-                return new PartData(
-                    accumulator.toByteArray(),
-                    true
+                return createPartData(
+                    accumulator,
+                    start,
+                    true,
+                    file
                 );
             }
 
@@ -331,29 +360,95 @@ final class MultipartParser {
              * The sequence only looked like a boundary.
              * Both following bytes are ordinary part data.
              */
-            accumulator.append(first);
-            accumulator.append(second);
+            window.append(first);
+            window.append(second);
+
+            if (accumulator != null) {
+                accumulator.append(first);
+                accumulator.append(second);
+            }
         }
     }
 
     /**
-     * Checks the final size of an uploaded file.
+     * Creates parsed part data after a boundary has been consumed.
      *
      * @param accumulator
-     *     the accumulated part data.
+     *     the form field data, or {@code null} for an uploaded file.
+     * @param start
+     *     the absolute part data offset.
+     * @param last
+     *     whether the final boundary was found.
      * @param file
      *     whether the part contains an uploaded file.
+     * @return
+     *     the parsed part data.
      * @throws ServerException
-     *     if the file is too large.
+     *     if the part exceeds its configured limit.
      */
-    private void validateFileSize(
+    private PartData createPartData(
         final ByteAccumulator accumulator,
+        final long start,
+        final boolean last,
         final boolean file
     ) throws ServerException {
-        if (file && accumulator.size() > options.getMaxFileSize()) {
+        final long length = position
+            - start
+            - dataBoundary.length
+            - 2;
+
+        validatePartSize(length, file);
+
+        final byte[] field;
+
+        if (accumulator == null) {
+            field = null;
+        } else {
+            accumulator.removeLast(dataBoundary.length);
+            field = accumulator.toByteArray();
+            formSize += field.length;
+        }
+
+        return new PartData(
+            start,
+            length,
+            field,
+            last
+        );
+    }
+
+    /**
+     * Checks a part against its configured limit.
+     *
+     * @param length
+     *     the possible part data length.
+     * @param file
+     *     whether the part is an uploaded file.
+     * @throws ServerException
+     *     if the configured limit is exceeded.
+     */
+    private void validatePartSize(
+        final long length,
+        final boolean file
+    ) throws ServerException {
+        if (length <= 0) {
+            return;
+        }
+
+        if (file && length > options.getMaxFileSize()) {
             throw new ServerException(
                 HttpStatus.PAYLOAD_TOO_LARGE,
                 "Maximum uploaded file size exceeded"
+            );
+        }
+
+        if (
+            !file
+                && length > options.getMaxFormSize() - formSize
+        ) {
+            throw new ServerException(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Maximum form data size exceeded"
             );
         }
     }
@@ -370,7 +465,7 @@ final class MultipartParser {
         final StringBuilder builder = new StringBuilder();
 
         while (true) {
-            final int value = source.read();
+            final int value = read();
 
             if (value == -1) {
                 throw new ServerException(
@@ -576,11 +671,29 @@ final class MultipartParser {
      */
     private void require(final int expected)
         throws ServerException {
-        if (source.read() != expected) {
+        if (read() != expected) {
             throw new ServerException(
                 "Invalid multipart data"
             );
         }
+    }
+
+    /**
+     * Reads one byte and advances the absolute body position.
+     *
+     * @return
+     *     the next byte, or {@code -1} at the end of the body.
+     * @throws ServerException
+     *     if reading fails.
+     */
+    private int read() throws ServerException {
+        final int value = source.read();
+
+        if (value >= 0) {
+            position++;
+        }
+
+        return value;
     }
 
     /**
@@ -671,9 +784,19 @@ final class MultipartParser {
     private static final class PartData {
 
         /**
-         * The part data.
+         * The absolute part data offset.
          */
-        private final byte[] data;
+        private final long offset;
+
+        /**
+         * The part data length.
+         */
+        private final long length;
+
+        /**
+         * Decoded form field bytes, or {@code null} for a file.
+         */
+        private final byte[] field;
 
         /**
          * Whether the part is followed by the final boundary.
@@ -683,17 +806,96 @@ final class MultipartParser {
         /**
          * Creates parsed part data.
          *
-         * @param data
-         *     the part data.
+         * @param offset
+         *     the absolute part data offset.
+         * @param length
+         *     the part data length.
+         * @param field
+         *     the form field bytes.
          * @param last
          *     whether this is the last part.
          */
         private PartData(
-            final byte[] data,
+            final long offset,
+            final long length,
+            final byte[] field,
             final boolean last
         ) {
-            this.data = data;
+            this.offset = offset;
+            this.length = length;
+            this.field = field;
             this.last = last;
+        }
+    }
+
+    /**
+     * Fixed-size rolling window used for boundary detection.
+     */
+    private static final class BoundaryWindow {
+
+        /**
+         * The rolling bytes.
+         */
+        private final byte[] data;
+
+        /**
+         * The index at which the next byte is written.
+         */
+        private int cursor;
+
+        /**
+         * The number of available bytes.
+         */
+        private int size;
+
+        /**
+         * Creates a rolling window.
+         *
+         * @param length
+         *     the window length.
+         */
+        BoundaryWindow(final int length) {
+            data = new byte[length];
+        }
+
+        /**
+         * Adds one byte.
+         *
+         * @param value
+         *     the byte value.
+         */
+        void append(final int value) {
+            data[cursor] = (byte) value;
+            cursor = (cursor + 1) % data.length;
+
+            if (size < data.length) {
+                size++;
+            }
+        }
+
+        /**
+         * Returns whether this window ends with the pattern.
+         *
+         * @param pattern
+         *     the expected bytes.
+         * @return
+         *     whether the bytes match.
+         */
+        boolean endsWith(final byte[] pattern) {
+            if (size != pattern.length) {
+                return false;
+            }
+
+            for (int index = 0; index < pattern.length; index++) {
+                if (
+                    data[(cursor + index) % data.length]
+                        != pattern[index]
+                ) {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

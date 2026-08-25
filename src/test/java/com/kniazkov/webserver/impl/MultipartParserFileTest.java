@@ -50,7 +50,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
         assertArrayEquals(
             bytes("Hello, world!"),
-            file.getData()
+            file.readAllBytes()
         );
     }
 
@@ -74,7 +74,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         assertEquals("empty.txt", file.getName());
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
-        assertArrayEquals(new byte[0], file.getData());
+        assertArrayEquals(new byte[0], file.readAllBytes());
     }
 
     /**
@@ -99,7 +99,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
             ContentType.APPLICATION_OCTET_STREAM,
             file.getContentType()
         );
-        assertArrayEquals(bytes("some data"), file.getData());
+        assertArrayEquals(bytes("some data"), file.readAllBytes());
     }
 
     /**
@@ -131,13 +131,13 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
         assertEquals("first.txt", files.getFirst().getName());
         assertArrayEquals(
             bytes("first"),
-            files.getFirst().getData()
+            files.getFirst().readAllBytes()
         );
 
         assertEquals("second.txt", files.get(1).getName());
         assertArrayEquals(
             bytes("second"),
-            files.get(1).getData()
+            files.get(1).readAllBytes()
         );
     }
 
@@ -178,7 +178,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         assertEquals("avatar.png", avatar.getName());
         assertEquals(ContentType.IMAGE_PNG, avatar.getContentType());
-        assertArrayEquals(bytes("png-data"), avatar.getData());
+        assertArrayEquals(bytes("png-data"), avatar.readAllBytes());
 
         final UploadedFile document =
             request.getFiles().get("document").getFirst();
@@ -188,7 +188,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
             ContentType.APPLICATION_PDF,
             document.getContentType()
         );
-        assertArrayEquals(bytes("pdf-data"), document.getData());
+        assertArrayEquals(bytes("pdf-data"), document.readAllBytes());
     }
 
     /**
@@ -223,7 +223,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         assertEquals("document.txt", file.getName());
         assertEquals(ContentType.TEXT_PLAIN, file.getContentType());
-        assertArrayEquals(bytes("contents"), file.getData());
+        assertArrayEquals(bytes("contents"), file.readAllBytes());
     }
 
     /**
@@ -268,7 +268,7 @@ final class MultipartParserFileTest extends MultipartParserBaseTest {
 
         assertArrayEquals(
             bytes("12345"),
-            request.getFiles().get("file").getFirst().getData()
+            request.getFiles().get("file").getFirst().readAllBytes()
         );
     }
 

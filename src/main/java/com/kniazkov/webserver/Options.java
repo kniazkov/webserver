@@ -41,6 +41,18 @@ public final class Options {
         128L * 1024L * 1024L;
 
     /**
+     * The default maximum request body held in memory, in bytes.
+     */
+    private static final long DEFAULT_MAX_IN_MEMORY_BODY_SIZE =
+        64L * 1024L;
+
+    /**
+     * The default maximum decoded form data size, in bytes.
+     */
+    private static final long DEFAULT_MAX_FORM_SIZE =
+        1024L * 1024L;
+
+    /**
      * The default maximum HTTP header section size, in bytes.
      */
     private static final long DEFAULT_MAX_HEADER_SIZE =
@@ -82,6 +94,16 @@ public final class Options {
      * The maximum uploaded file size, in bytes.
      */
     private final long maxFileSize;
+
+    /**
+     * The maximum request body held in memory, in bytes.
+     */
+    private final long maxInMemoryBodySize;
+
+    /**
+     * The maximum decoded form data size, in bytes.
+     */
+    private final long maxFormSize;
 
     /**
      * The maximum HTTP header section size, in bytes.
@@ -129,13 +151,9 @@ public final class Options {
         wwwRoot = builder.wwwRoot;
         maxHeaderSize = builder.maxHeaderSize;
         maxFileSize = builder.maxFileSize;
-        maxRequestSize = Math.max(
-            builder.maxRequestSize,
-            Math.max(
-                maxHeaderSize,
-                maxFileSize
-            )
-        );
+        maxRequestSize = builder.maxRequestSize;
+        maxInMemoryBodySize = builder.maxInMemoryBodySize;
+        maxFormSize = builder.maxFormSize;
         maxWorkers = builder.maxWorkers;
         readTimeout = builder.readTimeout;
         handlerTimeout = builder.handlerTimeout;
@@ -182,6 +200,28 @@ public final class Options {
      */
     public long getMaxFileSize() {
         return maxFileSize;
+    }
+
+    /**
+     * Returns the maximum request body size stored in memory.
+     * <p>
+     * Larger bodies are stored in a temporary file.
+     *
+     * @return
+     *     the in-memory body limit, in bytes.
+     */
+    public long getMaxInMemoryBodySize() {
+        return maxInMemoryBodySize;
+    }
+
+    /**
+     * Returns the maximum decoded form data size.
+     *
+     * @return
+     *     the form data limit, in bytes.
+     */
+    public long getMaxFormSize() {
+        return maxFormSize;
     }
 
     /**
@@ -280,6 +320,17 @@ public final class Options {
          * The maximum uploaded file size, in bytes.
          */
         private long maxFileSize = DEFAULT_MAX_FILE_SIZE;
+
+        /**
+         * The maximum request body held in memory, in bytes.
+         */
+        private long maxInMemoryBodySize =
+            DEFAULT_MAX_IN_MEMORY_BODY_SIZE;
+
+        /**
+         * The maximum decoded form data size, in bytes.
+         */
+        private long maxFormSize = DEFAULT_MAX_FORM_SIZE;
 
         /**
          * The maximum HTTP header section size, in bytes.
@@ -410,6 +461,51 @@ public final class Options {
             }
 
             maxFileSize = value;
+            return this;
+        }
+
+        /**
+         * Sets the maximum request body size held in memory.
+         * <p>
+         * Bodies with a larger declared Content-Length are stored in a
+         * temporary file.
+         *
+         * @param value
+         *     the in-memory body limit, in bytes.
+         * @return
+         *     this builder.
+         * @throws IllegalArgumentException
+         *     if the value is negative.
+         */
+        public Builder setMaxInMemoryBodySize(final long value) {
+            if (value < 0) {
+                throw new IllegalArgumentException(
+                    "Maximum in-memory body size must not be negative"
+                );
+            }
+
+            maxInMemoryBodySize = value;
+            return this;
+        }
+
+        /**
+         * Sets the maximum decoded form data size.
+         *
+         * @param value
+         *     the form data limit, in bytes.
+         * @return
+         *     this builder.
+         * @throws IllegalArgumentException
+         *     if the value is negative.
+         */
+        public Builder setMaxFormSize(final long value) {
+            if (value < 0) {
+                throw new IllegalArgumentException(
+                    "Maximum form size must not be negative"
+                );
+            }
+
+            maxFormSize = value;
             return this;
         }
 

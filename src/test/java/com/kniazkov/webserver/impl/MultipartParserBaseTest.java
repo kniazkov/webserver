@@ -72,13 +72,18 @@ abstract class MultipartParserBaseTest {
      */
     protected static Request parse(final String body, final Options options)
         throws ServerException {
+        final MemoryUploadedData data = new MemoryUploadedData(
+            body.getBytes(StandardCharsets.UTF_8)
+        );
+
         final RequestBuilder builder = new RequestBuilder()
             .setHeaders(headers())
             .setPath(RootRequestPath.getInstance())
-            .setBody(body.getBytes(StandardCharsets.UTF_8));
+            .setBody(data);
 
         MultipartParser.parse(
             new StringByteSource(body),
+            data,
             BOUNDARY,
             options,
             builder
@@ -101,13 +106,16 @@ abstract class MultipartParserBaseTest {
      */
     protected static Request parse(final byte[] body, final Options options)
         throws ServerException {
+        final MemoryUploadedData data = new MemoryUploadedData(body);
+
         final RequestBuilder builder = new RequestBuilder()
             .setHeaders(headers())
             .setPath(RootRequestPath.getInstance())
-            .setBody(body);
+            .setBody(data);
 
         MultipartParser.parse(
             new ByteArrayByteSource(body),
+            data,
             BOUNDARY,
             options,
             builder

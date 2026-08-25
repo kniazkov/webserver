@@ -235,6 +235,22 @@ final String name = form.get("name").getFirst();
 
 This means query parameters and form fields follow the same basic data model, including fields that occur more than once.
 
+### Request Body
+
+The complete request body is always available as `UploadedData`:
+
+```java
+final UploadedData body = request.getBody();
+
+try (InputStream input = body.openStream()) {
+    // Process the body without allocating one array for all of it.
+}
+```
+
+`openStream()` may be called more than once. `readAllBytes()` is available for
+small bodies when deliberately loading the complete body into memory is more
+convenient.
+
 ### Uploaded Files
 
 Files submitted using `multipart/form-data` are parsed separately and exposed through the request:
@@ -247,7 +263,9 @@ final UploadedFile file =
     files.get("avatar").getFirst();
 ```
 
-An uploaded file provides its original file name, content type, and binary contents. Binary data is preserved as-is by the server.
+`UploadedFile` extends `UploadedData`, adding the original file name and content
+type. The same streaming and explicit `readAllBytes()` operations are therefore
+available for request bodies and multipart files.
 
 ### Cookies
 
@@ -500,6 +518,14 @@ final UploadedFile image =
 
 Uploaded files contain the information already extracted from the multipart request, including the original file name, content type, and binary data. Application code therefore does not need to parse multipart boundaries, disposition headers, or raw request bodies itself.
 
+An uploaded file can be copied without loading it completely into memory:
+
+```java
+try (OutputStream output = Files.newOutputStream(destination)) {
+    image.transferTo(output);
+}
+```
+
 Multiple files submitted under the same field name are preserved:
 
 ```java
@@ -509,9 +535,16 @@ final List<UploadedFile> images =
 
 The server treats uploaded data as binary data. If the client does not provide a recognized content type, the file is still accepted as binary content rather than being rejected merely because its type is unknown.
 
-File uploads are subject to the configured maximum file size. This limit is applied to each uploaded file independently and prevents a client from consuming arbitrary amounts of memory with a single upload.
+File uploads are subject to the configured maximum file size. This limit is
+applied to each uploaded file independently.
 
 The overall request size is controlled separately by the request size limit.
+Small request bodies are kept in memory. If the declared `Content-Length`
+exceeds `maxInMemoryBodySize`, the server streams the body into one temporary
+file. Multipart files then become bounded views of that storage instead of
+additional copies. Temporary storage and all opened streams are released after
+the handler finishes, so uploaded data must be consumed or copied during the
+handler call.
 
 ## Working with Cookies
 
@@ -642,19 +675,21 @@ final Options options = new Options.Builder()
 
 The main configuration options include:
 
-| Option           | Purpose                                                     |
-| ---------------- | ----------------------------------------------------------- |
-| `port`           | TCP port on which the server listens                        |
-| `wwwRoot`        | Root directory used for static files                        |
-| `maxRequestSize` | Maximum size of an HTTP request                             |
-| `maxFileSize`    | Maximum size of an individual uploaded file                 |
-| `maxHeaderSize`  | Maximum size of HTTP headers                                |
-| `maxWorkers`     | Maximum number of client connections processed concurrently |
-| `readTimeout`    | Maximum time the server waits for additional request data   |
-| `handlerTimeout` | Maximum time allowed for application request handling       |
-| `handler`        | Application-specific request handler                        |
-| `errorPage`      | Generator used for standard HTML error pages                |
-| `sslOptions`     | SSL/TLS configuration; absent for ordinary HTTP             |
+| Option                    | Purpose                                                     |
+| ------------------------- | ----------------------------------------------------------- |
+| `port`                    | TCP port on which the server listens                        |
+| `wwwRoot`                 | Root directory used for static files                        |
+| `maxRequestSize`          | Maximum size of a complete HTTP request                     |
+| `maxFileSize`             | Maximum size of an individual uploaded file                 |
+| `maxInMemoryBodySize`     | Largest declared body stored in memory                      |
+| `maxFormSize`             | Maximum decoded non-file form data                          |
+| `maxHeaderSize`           | Maximum size of HTTP headers                                |
+| `maxWorkers`              | Maximum number of client connections processed concurrently |
+| `readTimeout`             | Maximum time the server waits for additional request data   |
+| `handlerTimeout`          | Maximum time allowed for application request handling       |
+| `handler`                 | Application-specific request handler                        |
+| `errorPage`               | Generator used for standard HTML error pages                |
+| `sslOptions`              | SSL/TLS configuration; absent for ordinary HTTP             |
 
 For example, limits can be adjusted for an application that accepts larger uploads:
 
@@ -662,6 +697,8 @@ For example, limits can be adjusted for an application that accepts larger uploa
 final Options options = new Options.Builder()
     .setMaxRequestSize(256 * 1024 * 1024)
     .setMaxFileSize(128 * 1024 * 1024)
+    .setMaxInMemoryBodySize(64 * 1024)
+    .setMaxFormSize(1024 * 1024)
     .build();
 ```
 
@@ -868,7 +905,7 @@ GET /search?q=java HTTP/1.1
 
 ### Request Bodies
 
-Request bodies with a known content length are read according to the `Content-Length` header. The server respects the exact request boundary, which is particularly important for persistent connections where another HTTP request may immediately follow the current request body.
+Request bodies with a known content length are read according to the `Content-Length` header. The server respects the exact request boundary, which is particularly important for persistent connections where another HTTP request may immediately follow the current request body. Every body is exposed as `UploadedData`; small bodies use memory and larger bodies use temporary-file storage according to `maxInMemoryBodySize`.
 
 URL-encoded form data is parsed automatically:
 
@@ -1059,13 +1096,13 @@ final Handler handler = (request, environment) -> {
 
     return factory
         .fromText(
-            "Received: " + file.getFileName()
+            "Received: " + file.getName()
         )
         .build();
 };
 ```
 
-Multipart parsing, boundaries, disposition headers, and binary body handling are performed before application code sees the request.
+Multipart parsing, boundaries, disposition headers, and binary body handling are performed before application code sees the request. Call `openStream()`, `transferTo(...)`, or `readAllBytes()` while the handler is running; temporary upload storage is released when the handler completes.
 
 ### Returning Different Response Types
 

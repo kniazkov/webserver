@@ -27,6 +27,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 final class UploadEndToEndTest extends EndToEndBaseTest {
 
     /**
+     * Forces multipart request bodies through temporary-file storage.
+     *
+     * @param builder
+     *     the server options builder.
+     */
+    @Override
+    protected void configure(final Options.Builder builder) {
+        builder.setMaxInMemoryBodySize(0);
+        super.configure(builder);
+    }
+
+    /**
      * Tests uploading one text file through an HTML form.
      */
     @Test
@@ -79,7 +91,7 @@ final class UploadEndToEndTest extends EndToEndBaseTest {
                 );
                 assertArrayEquals(
                     data,
-                    uploaded.getData()
+                    uploaded.readAllBytes()
                 );
 
                 return environment

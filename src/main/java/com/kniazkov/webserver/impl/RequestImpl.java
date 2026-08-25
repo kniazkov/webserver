@@ -4,9 +4,10 @@
 
 package com.kniazkov.webserver.impl;
 
-import com.kniazkov.webserver.Request;
 import com.kniazkov.webserver.RequestHeaders;
 import com.kniazkov.webserver.RequestPath;
+import com.kniazkov.webserver.ServerException;
+import com.kniazkov.webserver.UploadedData;
 import com.kniazkov.webserver.UploadedFile;
 
 import java.util.LinkedHashMap;
@@ -16,7 +17,7 @@ import java.util.Map;
 /**
  * Immutable implementation of an HTTP request.
  */
-final class RequestImpl implements Request {
+final class RequestImpl implements ManagedRequest {
 
     /**
      * The request headers.
@@ -51,7 +52,7 @@ final class RequestImpl implements Request {
     /**
      * The original request body.
      */
-    private final byte[] body;
+    private final StoredUploadedData body;
 
     /**
      * Creates an HTTP request.
@@ -78,7 +79,7 @@ final class RequestImpl implements Request {
         final Map<String, List<String>> form,
         final Map<String, List<UploadedFile>> files,
         final Map<String, String> cookies,
-        final byte[] body
+        final StoredUploadedData body
     ) {
         this.headers = headers;
         this.path = path;
@@ -86,7 +87,7 @@ final class RequestImpl implements Request {
         this.form = copyLists(form);
         this.files = copyLists(files);
         this.cookies = Map.copyOf(cookies);
-        this.body = body.clone();
+        this.body = body;
     }
 
     @Override
@@ -120,8 +121,13 @@ final class RequestImpl implements Request {
     }
 
     @Override
-    public byte[] getBody() {
-        return body.clone();
+    public UploadedData getBody() {
+        return body;
+    }
+
+    @Override
+    public void close() throws ServerException {
+        body.close();
     }
 
     /**
