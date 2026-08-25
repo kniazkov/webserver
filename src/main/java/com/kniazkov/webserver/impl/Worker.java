@@ -14,11 +14,11 @@ import com.kniazkov.webserver.Response;
 import com.kniazkov.webserver.ResponseFactory;
 import com.kniazkov.webserver.ServerException;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -254,9 +254,20 @@ final class Worker implements Runnable {
             return responseFactory.notFound();
         }
 
-        final File file = resolved.toFile();
+        try {
+            final Path realRoot = root.toRealPath();
+            final Path realFile = resolved.toRealPath();
 
-        return responseFactory.fromFile(file);
+            if (!realFile.startsWith(realRoot)) {
+                return responseFactory.notFound();
+            }
+
+            return responseFactory.fromFile(realFile.toFile());
+        } catch (NoSuchFileException exception) {
+            return responseFactory.notFound();
+        } catch (IOException | SecurityException exception) {
+            return responseFactory.forbidden();
+        }
     }
 
     /**
