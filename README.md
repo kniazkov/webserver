@@ -1,363 +1,240 @@
 # Foundry19 Web Server
 
-![Build](https://github.com/kniazkov/webserver/actions/workflows/build.yml/badge.svg)
+[![Build][build-badge]][build]
+[![License: MIT][license-badge]][license]
+[![Java 21][java-badge]][java]
 
-Foundry19 Web Server is a lightweight HTTP/HTTPS server library for Java 21, designed around a simple idea: running a web server should not require adopting a framework, learning a large configuration system, or surrendering control of your application to somebody else's architecture.
+Foundry19 Web Server is a small HTTP/HTTPS server library for Java 21. It runs
+inside your application and gives each request to a plain Java handler. There
+are no annotations, controllers, dependency-injection containers, servlet
+APIs, or external runtime dependencies.
 
-> “Do one thing and do it well.”  
-> — Unix philosophy
+Version **2.0.0** is a complete redesign of the original library.
 
-The server provides a small, straightforward API for receiving HTTP requests and producing HTTP responses. It handles the protocol-level work such as request parsing, forms, file uploads, cookies, persistent connections, static files, limits, and HTTPS, while leaving application logic entirely in your hands.
+## Features
 
-There are no controllers, annotations, dependency injection containers, or application lifecycle rituals. A handler receives a `Request`, returns a `Response`, and that is essentially the contract.
+- HTTP/1.0 and HTTP/1.1 with persistent connections
+- GET and POST requests
+- query strings, URL-encoded forms, cookies, and multipart forms
+- repeatable streaming access to request bodies and uploaded files
+- bounded request, header, form, multipart, worker, and timeout resources
+- static-file serving with path and symbolic-link containment
+- typed response factories, status codes, and content types
+- HTTPS with PKCS #12, JKS, or PEM identity material
+- optional or required mutual TLS
+- Java 21 virtual threads
+- no external runtime dependencies
 
-A minimal server requires only a few lines:
+## Requirements
+
+- Java 21 or later
+- Maven 3.9 or later for building the project
+
+## Installation
+
+Use the following dependency for version 2.0.0:
+
+```xml
+<dependency>
+    <groupId>com.kniazkov</groupId>
+    <artifactId>webserver</artifactId>
+    <version>2.0.0</version>
+</dependency>
+```
+
+## Quick Start
+
+The following application listens on port `8000` and returns plain text from
+one endpoint:
 
 ```java
+package example;
+
+import com.kniazkov.webserver.Handler;
 import com.kniazkov.webserver.Options;
 import com.kniazkov.webserver.Server;
+import com.kniazkov.webserver.ServerException;
 
 public final class Main {
 
-    public static void main(final String[] args) throws Exception {
-        final Server server = Server.start(
-            new Options.Builder().build()
-        );
+    private Main() {
+    }
+
+    public static void main(final String[] args)
+        throws ServerException {
+        final Handler handler = (request, environment) -> {
+            if (request.getPath().getPath().equals("/hello")) {
+                return environment
+                    .getResponseFactory()
+                    .fromText("Hello, world!")
+                    .build();
+            }
+
+            return environment
+                .getResponseFactory()
+                .notFound();
+        };
+
+        final Options options = new Options.Builder()
+            .setPort(8000)
+            .setHandler(handler)
+            .build();
+
+        final Server server = Server.start(options);
+        System.out.println("Listening on port " + server.getPort());
     }
 }
 ```
 
-By default, the server can serve static files from its configured web root. Custom request handling is just as small:
+`Server.start()` begins accepting connections immediately. A running server
+keeps the JVM alive after `main()` returns. Call `server.stop()` during your
+application's shutdown sequence; it is safe to call more than once.
+
+Port `0` asks the operating system to select a free port. The assigned port is
+then available through `server.getPort()`.
+
+## Request Handling
+
+A `Handler` receives a parsed `Request` and an `Environment`. The environment
+currently provides the `ResponseFactory` used to build responses.
+
+### Headers and Paths
+
+Request metadata is available without parsing raw HTTP text:
 
 ```java
-final Options options = new Options.Builder()
-    .setHandler(
-        (request, environment) ->
-            environment
-                .getResponseFactory()
-                .fromText("Hello, world!")
-                .build()
-    )
-    .build();
+final RequestHeaders headers = request.getHeaders();
+final HttpMethod method = headers.getMethod();
+final HttpVersion version = headers.getVersion();
+final Map<String, List<String>> values = headers.getValues();
 
-final Server server = Server.start(options);
-```
-
-That is the basic model throughout the library: configure what you need, implement the behavior you need, and let the server deal with HTTP. The public API is intentionally kept small and predictable so that simple applications stay simple and more complicated applications can be built without fighting the library.
-
-## Requirements
-
-Foundry19 Web Server requires:
-
-- **Java 21** or later
-- **Maven** for dependency management and building
-
-The library has no external runtime requirements. The server runs directly inside your Java application and does not require a separate application server, servlet container, or additional deployment environment.
-
-## Installation
-
-Foundry19 Web Server is available as a Maven dependency.
-
-Add the following to your `pom.xml`:
-
-```xml
-<dependencies>
-    <dependency>
-        <groupId>com.kniazkov</groupId>
-        <artifactId>webserver</artifactId>
-        <version>2.0.0</version>
-    </dependency>
-</dependencies>
-```
-
-Once the dependency is added, the server becomes part of your application. There is nothing else to install or deploy separately.
-
-Version **2.0.0** is the second generation of the library, with a redesigned API and server architecture focused on simplicity, predictable behavior, and modern Java.
-
-### No Dependency Bloat
-
-Adding Foundry19 Web Server does not pull a small civilization of third-party libraries into your project. The server is built on the Java standard library and has **no external runtime dependencies**, keeping your dependency tree small, predictable, and under your control.
-
-## Starting the Server
-
-Starting a server requires only an `Options` instance:
-
-```java
-final Server server = Server.start(
-    new Options.Builder().build()
-);
-````
-
-The server starts listening immediately using the configured options. When the application no longer needs it, stop it explicitly:
-
-```java
-server.stop();
-```
-
-With the default configuration, requests that are not handled explicitly are resolved as static files from the configured web root. This makes it possible to run a useful server without writing a handler at all.
-
-Configuration is performed through `Options.Builder`, so the basic startup code remains the same as features are added:
-
-```java
-final Options options = new Options.Builder()
-    .setPort(8080)
-    .setBindAddress(InetAddress.getLoopbackAddress())
-    .setBacklog(128)
-    .setWwwRoot("public")
-    .build();
-
-final Server server = Server.start(options);
-```
-
-There is no separate bootstrap process, container, configuration file, or framework lifecycle. `Server.start()` starts the server; `Server.stop()` stops it. Apparently this can, in fact, be that simple.
-
-## Handling Requests
-
-Application-specific behavior is implemented through the `Handler` interface. A handler receives the parsed `Request` together with an `Environment` and returns a `Response`:
-
-```java
-final Handler handler = (request, environment) ->
-    environment
-        .getResponseFactory()
-        .fromText("Hello, world!")
-        .build();
-```
-
-The handler is attached to the server through `Options`:
-
-```java
-final Options options = new Options.Builder()
-    .setPort(8080)
-    .setHandler(handler)
-    .build();
-
-final Server server = Server.start(options);
-```
-
-The `Request` contains the information extracted from the HTTP request, while the `Environment` provides server services intended for use by application code. In particular, it gives access to the `ResponseFactory`, which is the standard way to construct responses.
-
-A handler can inspect the request and choose a response using ordinary Java code:
-
-```java
-final Handler handler = (request, environment) -> {
-    final ResponseFactory factory =
-        environment.getResponseFactory();
-
-    if (request.getPath().getFullPath().equals("/hello")) {
-        return factory
-            .fromText("Hello!")
-            .build();
-    }
-
-    return factory.notFound();
-};
-```
-
-A handler may also return:
-
-```java
-return environment
-    .getResponseFactory()
-    .noResponse();
-```
-
-`noResponse()` tells the server that the handler does not want to produce a response itself. The server then falls back to its default behavior, such as looking for a static file corresponding to the requested path.
-
-This allows custom logic and static content to coexist without requiring the application to reimplement file serving:
-
-```java
-final Handler handler = (request, environment) -> {
-    if (request.getPath().getFullPath().equals("/api/status")) {
-        return environment
-            .getResponseFactory()
-            .fromJson("{\"status\":\"ok\"}")
-            .build();
-    }
-
-    return environment
-        .getResponseFactory()
-        .noResponse();
-};
-```
-
-Here `/api/status` is handled by application code, while other requests are left to the server's default processing.
-
-## Working with Requests
-
-The `Request` object contains the HTTP request after it has been parsed by the server. Application code does not need to manually split URLs, decode form parameters, parse cookies, or interpret multipart data.
-
-The request path is available separately from query parameters:
-
-```java
 final RequestPath path = request.getPath();
-
-final String fullPath = path.getPath();
+final String completePath = path.getPath();
 final String directory = path.getDirectory();
 final String fileName = path.getFileName();
-final String extension = path.getFileType();
+final String fileType = path.getFileType();
 final ContentType contentType = path.getContentType();
-````
-
-For example, a request for:
-
-```text
-/images/photo.jpg?size=large
 ```
 
-provides the path information independently from the query string. File extensions and their corresponding `ContentType` values are determined by the server.
+The path is percent-decoded exactly once with strict UTF-8 and always begins
+with `/`. A trailing slash is preserved. Invalid encoding, control characters,
+empty interior segments, `.` and `..` segments, and encoded path separators are
+rejected before the handler runs.
 
-### Request Path Normalization
+### Query and Form Values
 
-The request path is decoded into one canonical application path before it is
-exposed through `RequestPath` or used for static-file lookup. The processing
-order is deliberately strict:
-
-1. The raw query string is separated from the raw path.
-2. Literal `/` characters divide the path into segments.
-3. Each segment is percent-decoded exactly once using strict UTF-8.
-4. The decoded segments are validated before the path is used.
-
-For example, `/documents/My%20File.txt` is exposed to a handler as
-`/documents/My File.txt`. A `+` in a path remains a literal plus; only query and
-form data use the convention that decodes `+` as a space.
-
-A trailing slash is preserved. Consequently, `/documents/` has the directory
-`/documents/` and an empty file name instead of being rejected or silently
-changed into `/documents`.
-
-Malformed percent encoding, invalid UTF-8, control characters, empty interior
-segments, and `.` or `..` segments are rejected with `400 Bad Request`.
-Percent-encoded `/` and `\` characters are also rejected rather than being
-allowed to change the path structure. Decoding happens only once, so a value
-such as `%252e%252e` becomes the literal segment `%2e%2e`, never a parent
-directory traversal.
-
-### Query Parameters
-
-Query parameters are parsed into collections of values, so repeated parameters are preserved:
-
-```text
-/search?q=java&q=http&page=2
-```
-
-They can be accessed directly from the request:
+Query and form values use immutable maps of immutable lists. Repeated values
+are preserved:
 
 ```java
-final Map<String, List<String>> query = request.getQuery();
+final List<String> queryValues = request
+    .getQuery()
+    .getOrDefault("q", List.of());
 
-final List<String> terms = query.get("q");
-final String page = query.get("page").getFirst();
+final List<String> formValues = request
+    .getForm()
+    .getOrDefault("tag", List.of());
 ```
 
-In this example, `terms` contains both `java` and `http`.
+`getForm()` contains decoded fields from URL-encoded and multipart POST bodies.
+For other requests it is empty.
 
-### Form Data
+### Request Bodies
 
-URL-encoded POST forms are parsed in the same way:
-
-```java
-final Map<String, List<String>> form = request.getForm();
-
-final String name = form.get("name").getFirst();
-```
-
-This means query parameters and form fields follow the same basic data model, including fields that occur more than once.
-
-### Request Body
-
-The complete request body is always available as `UploadedData`:
+Every request exposes its original body as `UploadedData`:
 
 ```java
 final UploadedData body = request.getBody();
 
 try (InputStream input = body.openStream()) {
-    // Process the body without allocating one array for all of it.
+    input.transferTo(output);
 }
 ```
 
-`openStream()` may be called more than once. `readAllBytes()` is available for
-small bodies when deliberately loading the complete body into memory is more
-convenient.
+`openStream()` may be called repeatedly. `transferTo(OutputStream)` streams the
+body, while `readAllBytes()` deliberately loads all of it into memory. Bodies
+whose declared size exceeds `maxInMemoryBodySize` use temporary-file storage.
+
+Uploaded data remains valid only while the handler is running. Copy or process
+it inside the handler; do not retain an `UploadedData` or `UploadedFile` for
+later use.
 
 ### Uploaded Files
 
-Files submitted using `multipart/form-data` are parsed separately and exposed through the request:
+Multipart files are grouped by form field name:
 
 ```java
-final Map<String, List<UploadedFile>> files =
-    request.getFiles();
+final List<UploadedFile> files = request
+    .getFiles()
+    .getOrDefault("attachment", List.of());
 
-final UploadedFile file =
-    files.get("avatar").getFirst();
+for (UploadedFile file : files) {
+    final String name = file.getName();
+    final ContentType type = file.getContentType();
+
+    try (InputStream input = file.openStream()) {
+        process(name, type, input);
+    }
+}
 ```
 
-`UploadedFile` extends `UploadedData`, adding the original file name and content
-type. The same streaming and explicit `readAllBytes()` operations are therefore
-available for request bodies and multipart files.
+Small multipart data is kept in memory. Larger uploads are written to temporary
+files while parsing, so the server does not need to hold the complete request in
+memory. Temporary storage is released after the handler completes.
 
-### Cookies
+### Request Cookies
 
-Cookies received from the client are parsed from the HTTP headers and made directly available through the request:
+Incoming cookies are already parsed:
 
 ```java
-final Map<String, String> cookies =
-    request.getCookies();
-
-final String session = cookies.get("session");
+final String session = request.getCookies().get("session");
 ```
 
-Application code therefore normally works with structured request data rather than raw HTTP syntax. The raw protocol parsing remains where it belongs: somewhere else.
+## Responses
 
-## Creating Responses
+`ResponseFactory` fixes the status, content type, and body when a builder is
+created. A `ResponseBuilder` can add headers and cookies, but cannot later turn
+a text response into JSON or change its status.
 
-Responses are created through the `ResponseFactory` available from the handler's `Environment`:
+### Factory Methods
 
-```java
-final ResponseFactory factory =
-    environment.getResponseFactory();
-```
+| Method | Result |
+| --- | --- |
+| `fromText(String)` | `200 OK`, `text/plain`, UTF-8 |
+| `fromHtml(String)` | `200 OK`, `text/html`, UTF-8 |
+| `fromJson(String)` | `200 OK`, `application/json`, UTF-8 |
+| `fromXml(String)` | `200 OK`, `application/xml`, UTF-8 |
+| `fromBytes(byte[])` | `200 OK`, `application/octet-stream` |
+| `redirect(String)` | `302 Found` with `Location` |
+| `redirectPermanently(String)` | `301 Moved Permanently` with `Location` |
+| `fromFile(File)` | file response, `403`, `404`, or `500` |
+| `forbidden()` | `403 Forbidden` |
+| `notFound()` | `404 Not Found` |
+| `error(...)` | an error response |
+| `noResponse()` | delegate to default static-file processing |
 
-The factory provides common responses directly and builders for responses that may require additional headers or cookies.
-
-### Text Responses
-
-A plain text response can be created with:
-
-```java
-return factory
-    .fromText("Hello, world!")
-    .build();
-```
-
-HTML and JSON responses work the same way:
-
-```java
-return factory
-    .fromHtml("<h1>Hello!</h1>")
-    .build();
-```
+For example:
 
 ```java
-return factory
+return environment
+    .getResponseFactory()
     .fromJson("{\"status\":\"ok\"}")
+    .setHeader("Cache-Control", "no-store")
     .build();
 ```
 
-The appropriate `Content-Type` is selected automatically. Text created by
-these factory methods is encoded as UTF-8 and the response declares
-`charset=UTF-8` explicitly.
+`Content-Type`, `Content-Length`, connection, and other server-managed framing
+headers cannot be supplied through a response builder. Header names and values
+are validated to prevent malformed responses and header injection.
 
-### Status, Binary Data, and Content Types
+### Custom and Binary Responses
 
-Factory methods fix the status, content type, and body when the builder is
-created. The builder can add headers and cookies, but cannot turn a text
-response into JSON or change its status.
-
-When no specific factory method fits, one explicit escape hatch accepts all
-three fundamental response properties:
+`custom(...)` is the single escape hatch for independently selecting the
+status, content type, and raw body:
 
 ```java
-return factory
+return environment
+    .getResponseFactory()
     .custom(
         HttpStatus.CREATED,
         ContentType.APPLICATION_JSON,
@@ -367,56 +244,23 @@ return factory
     .build();
 ```
 
-Content types are selected through the `ContentType` enum. The enum covers
-common web documents, structured data, archives, office documents, fonts,
-images, audio, video, and 3D models, so misspelled media types cannot enter an
-outgoing response.
+`ContentType` is an enum rather than a free-form string. Unknown file
+extensions use `ContentType.APPLICATION_OCTET_STREAM`. A numeric status can be
+resolved with `HttpStatus.fromCode(404)`; an unsupported number is rejected.
 
-Raw bytes can be returned without text conversion:
+### Response Cookies
 
-```java
-return factory
-    .fromBytes(packet)
-    .build();
-```
-
-`fromBytes(byte[])` is always `200 OK` with
-`application/octet-stream`. Custom status or media-type combinations must use
-`custom(...)`, making the unsafe path deliberate and visible at the call site.
-
-### Headers
-
-Additional response headers can be added before building the response:
+Simple cookies can be added directly:
 
 ```java
-return factory
-    .fromText("Hello")
-    .setHeader("X-Application", "example")
-    .build();
-```
-
-Framing, representation, and hop-by-hop headers managed by the HTTP server
-cannot be supplied through the builder. The reserved names are `Close`,
-`Connection`, `Content-Length`, `Content-Type`, `Keep-Alive`,
-`Proxy-Connection`, `TE`, `Trailer`, `Transfer-Encoding`, and `Upgrade`.
-The final content length and connection policy are generated from the actual
-response and request. Header values containing unsafe control characters are
-rejected; horizontal tab remains available where HTTP field syntax permits it.
-
-### Cookies
-
-Cookies are handled separately from ordinary headers:
-
-```java
-return factory
+return environment
+    .getResponseFactory()
     .fromText("Logged in")
-    .setCookie("session", "abc123")
+    .setCookie("session", sessionId)
     .build();
 ```
 
-This keeps cookie handling explicit without requiring application code to manually construct `Set-Cookie` headers.
-
-Cookie attributes are represented by `ResponseCookie`:
+Use `ResponseCookie` for attributes:
 
 ```java
 final ResponseCookie cookie = new ResponseCookie.Builder(
@@ -430,44 +274,19 @@ final ResponseCookie cookie = new ResponseCookie.Builder(
     .setSameSite(SameSite.LAX)
     .build();
 
-return factory
+return environment
+    .getResponseFactory()
     .fromText("Logged in")
     .setCookie(cookie)
     .build();
 ```
 
-`ResponseCookie` validates itself when built and its `toString()` method
-returns the complete `Set-Cookie` header value.
+Cookie names, values, and attributes are validated when the cookie is built.
+`SameSite.NONE` requires the secure attribute.
 
-### Standard Responses
+### Error Responses
 
-Common HTTP responses are available directly from the factory:
-
-```java
-return factory.notFound();
-```
-
-Numeric status codes can be converted to their enum value when needed:
-
-```java
-final HttpStatus status = HttpStatus.fromCode(404);
-```
-
-For an internal server error:
-
-```java
-return factory.error();
-```
-
-or, when an error is represented by a `ServerException`:
-
-```java
-return factory.error(exception);
-```
-
-An exception without a status is treated as an internal error. Its message is
-not exposed to the client. A handler can deliberately return an HTTP error by
-including a status:
+`ServerException` may optionally carry an HTTP error status:
 
 ```java
 throw new ServerException(
@@ -476,909 +295,243 @@ throw new ServerException(
 );
 ```
 
-The server then returns `409 Conflict` and passes the supplied message to the
-configured error page. Request parsing errors similarly use protocol-specific
-statuses such as `400`, `413`, `431`, `501`, and `505`.
+The server uses that status and message for the response. An exception without
+a status becomes `500 Internal Server Error`, and its internal message is not
+sent to the client. Parser failures use protocol-specific statuses including
+`400`, `413`, `417`, `431`, `501`, and `505`.
 
-The appearance of generated error pages can be customized through the server configuration without changing handler code.
-
-### File Responses
-
-A file can be returned directly:
+Generated error HTML can be replaced through `Options.Builder.setErrorPage`:
 
 ```java
-return factory.fromFile(file);
+final ErrorPage errorPage = (code, reason, message) ->
+    "<h1>Request failed</h1>";
 ```
 
-The server reads the file as binary data and determines its `Content-Type` from the file extension.
+`ErrorPage` controls presentation, not the response status. If a custom page
+includes `reason` or `message`, it must HTML-escape them before interpolation.
 
-If the file does not exist, the factory returns a `404 Not Found` response. If the path refers to a directory or the file cannot be accessed, it returns `403 Forbidden`.
+## Static Files
 
-### Default Processing
-
-A handler does not have to produce a response for every request. It can explicitly delegate processing back to the server:
-
-```java
-return factory.noResponse();
-```
-
-This is particularly useful when application endpoints and static files share the same server:
+Without a custom handler, the server serves files from the `www` directory.
+With a custom handler, return `noResponse()` to use the same fallback:
 
 ```java
-if (request.getPath().getFullPath().equals("/api/version")) {
-    return factory
-        .fromJson("{\"version\":\"2.0\"}")
-        .build();
-}
+final Handler handler = (request, environment) -> {
+    if (request.getPath().getPath().startsWith("/api/")) {
+        return environment
+            .getResponseFactory()
+            .fromJson("{\"version\":\"2.0.0\"}")
+            .build();
+    }
 
-return factory.noResponse();
-```
-
-The application handles `/api/version`; everything else is left to the server's default processing.
-
-Static-file fallback resolves both the configured `wwwRoot` and the requested
-file to their real filesystem paths. Symbolic links are followed only when
-their final target remains inside the real `wwwRoot`; a dangling link or a
-link that escapes the root produces `404 Not Found`. This containment policy
-does not restrict files deliberately returned by application code through
-`ResponseFactory.fromFile`.
-
-The result is deliberately uncomplicated: inspect a `Request`, use a `ResponseFactory`, return a `Response`. No annotations, reflection tricks, controller hierarchies, or other ceremonial machinery are required.
-
-## Uploading Files
-
-File uploads using `multipart/form-data` are parsed automatically by the server. Uploaded files are separated from ordinary form fields and exposed through the `Request` API.
-
-For example, given an HTML form:
-
-```html
-<form method="post" enctype="multipart/form-data">
-    <input type="text" name="description">
-    <input type="file" name="image">
-    <button type="submit">Upload</button>
-</form>
-````
-
-the text field is available as ordinary form data:
-
-```java
-final String description =
-    request.getForm()
-        .get("description")
-        .getFirst();
-```
-
-while the uploaded file is available separately:
-
-```java
-final UploadedFile image =
-    request.getFiles()
-        .get("image")
-        .getFirst();
-```
-
-Uploaded files contain the information already extracted from the multipart request, including the original file name, content type, and binary data. Application code therefore does not need to parse multipart boundaries, disposition headers, or raw request bodies itself.
-
-An uploaded file can be copied without loading it completely into memory:
-
-```java
-try (OutputStream output = Files.newOutputStream(destination)) {
-    image.transferTo(output);
-}
-```
-
-Multiple files submitted under the same field name are preserved:
-
-```java
-final List<UploadedFile> images =
-    request.getFiles().get("images");
-```
-
-The server treats uploaded data as binary data. If the client does not provide a recognized content type, the file is still accepted as binary content rather than being rejected merely because its type is unknown.
-
-File uploads are subject to the configured maximum file size. This limit is
-applied to each uploaded file independently.
-
-The overall request size is controlled separately by the request size limit.
-Small request bodies are kept in memory. If the declared `Content-Length`
-exceeds `maxInMemoryBodySize`, the server streams the body into one temporary
-file. Multipart files then become bounded views of that storage instead of
-additional copies. Temporary storage and all opened streams are released after
-the handler finishes, so uploaded data must be consumed or copied during the
-handler call.
-
-Multipart metadata is bounded independently from file and form contents.
-`maxMultipartParts` limits the number of fields and files in one request, while
-`maxMultipartHeaderSize` limits the header section of each part. Boundary
-values are validated against the RFC 2046 grammar and its 70-character limit.
-
-## Working with Cookies
-
-Cookies received from the client are parsed automatically and exposed through the `Request` object:
-
-```java
-final Map<String, String> cookies =
-    request.getCookies();
-```
-
-A particular cookie can then be accessed directly:
-
-```java
-final String session =
-    request.getCookies().get("session");
-```
-
-There is no need to locate the `Cookie` header or parse its contents manually.
-
-Cookies can also be added to responses through `ResponseBuilder`:
-
-```java
-return environment
-    .getResponseFactory()
-    .fromText("Welcome back")
-    .setCookie("session", "abc123")
-    .build();
-```
-
-This produces the corresponding `Set-Cookie` response header while keeping cookie handling separate from ordinary response headers.
-
-Cookies can therefore be read and written using the same request-response model as the rest of the library:
-
-```java
-final String session =
-    request.getCookies().get("session");
-
-if (session == null) {
     return environment
         .getResponseFactory()
-        .fromText("New session")
-        .setCookie("session", createSessionId())
-        .build();
-}
-
-return environment
-    .getResponseFactory()
-    .fromText("Existing session")
-    .build();
+        .noResponse();
+};
 ```
 
-The server handles the HTTP syntax; application code deals with cookie names and values. Raw `Cookie` and `Set-Cookie` headers remain available when needed, but routine cookie handling does not require constructing or parsing them by hand.
+The requested file and configured root are resolved to real filesystem paths.
+A symbolic link is followed only if its target remains inside the real web
+root. Missing files and links escaping that root return `404 Not Found`;
+directories and unreadable files return `403 Forbidden`.
+
+`ResponseFactory.fromFile(File)` is an explicit application response and is not
+restricted to the static web root.
 
 ## HTTPS
 
-HTTPS can be enabled by providing an `SslOptions` instance in the server configuration. The rest of the application does not need to change: handlers, requests, responses, static files, and other server features work the same way over HTTP and HTTPS.
+HTTPS uses the same `Server` and `Handler`. Supply one server identity through
+either a key store or PEM files.
 
-A typical configuration using a PKCS #12 key store looks like this:
+### PKCS #12 or JKS
 
 ```java
 final char[] password = loadPassword();
-final SslOptions sslOptions;
-try {
-    sslOptions = new SslOptions.Builder()
-        .setKeyStoreFile("certificate.p12")
-        .setPassword(password)
-        .build();
-} finally {
-    Arrays.fill(password, '\0');
-}
 
-final Options options = new Options.Builder()
-    .setPort(8443)
-    .setSslOptions(sslOptions)
-    .build();
-
-final Server server = Server.start(options);
-```
-
-Password methods accepting `char[]` make it possible for the application to clear its copy as soon as the options have been built. The builder keeps only defensive mutable copies and transfers them to the resulting immutable options. The older `String` overloads remain source-compatible but are deprecated because Java strings cannot be cleared from memory.
-
-`PKCS12` is the default key store type. JKS key stores are also supported:
-
-```java
-final SslOptions sslOptions = new SslOptions.Builder()
-    .setKeyStoreFile("server.jks")
+final SslOptions ssl = new SslOptions.Builder()
+    .setKeyStoreFile("server.p12")
     .setPassword(password)
-    .setKeyStoreType(KeyStoreType.JKS)
     .build();
+
+final Server server = Server.start(
+    new Options.Builder()
+        .setPort(8443)
+        .setSslOptions(ssl)
+        .build()
+);
 ```
 
-If the private key and the key store use different passwords, configure them separately with `setKeyStorePassword(char[])` and `setKeyPassword(char[])`.
+PKCS #12 is the default store type. Use `setKeyStoreType(KeyStoreType.JKS)` for
+JKS. If the store and private key passwords differ, use
+`setKeyStorePassword(char[])` and `setKeyPassword(char[])` separately.
 
-The server can also load the usual PEM files directly. The certificate file may contain the complete X.509 chain. The private key must be an unencrypted PKCS #8 PEM key:
+Password arrays are defensively copied. The builder clears the copies it owns
+after `build()`; the caller remains responsible for clearing its original
+array.
+
+### PEM
 
 ```java
-final SslOptions sslOptions = new SslOptions.Builder()
+final SslOptions ssl = new SslOptions.Builder()
     .setCertificateChainFile("fullchain.pem")
     .setPrivateKeyFile("private-key.pk8.pem")
     .build();
 ```
 
-Traditional PKCS #1 keys and encrypted PEM keys are deliberately rejected with a clear startup error. Convert a PKCS #1 key to the supported representation before deployment, or use a password-protected PKCS #12/JKS store when encryption at rest is required.
+PEM mode accepts an X.509 certificate chain and an unencrypted PKCS #8 private
+key. PKCS #1 and encrypted PEM private keys are rejected; use PKCS #12 or JKS
+when encrypted identity material is required.
 
-By default, Java's TLS provider selects its enabled protocol versions and cipher suites. A deployment that requires a fixed policy can restrict both explicitly:
+### Protocol Policy and Mutual TLS
+
+By default, the Java TLS provider chooses enabled protocol versions and cipher
+suites. They can be restricted explicitly:
 
 ```java
-final SslOptions sslOptions = new SslOptions.Builder()
-    .setKeyStoreFile("certificate.p12")
+final SslOptions ssl = new SslOptions.Builder()
+    .setKeyStoreFile("server.p12")
     .setPassword(password)
     .setEnabledProtocols(
         SslProtocol.TLS_1_2,
         SslProtocol.TLS_1_3
     )
-    .setCipherSuites(
-        "TLS_AES_128_GCM_SHA256",
-        "TLS_AES_256_GCM_SHA384",
-        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
-    )
+    .setCipherSuites("TLS_AES_128_GCM_SHA256")
     .build();
 ```
 
-Protocol and cipher names are validated by JSSE when `Server.start()` creates the listener. An unsupported value fails startup instead of silently weakening or changing the requested policy. Explicit cipher lists should be reviewed when the JDK or deployment policy changes; leaving the lists unset follows the provider's maintained defaults.
-
-Mutual TLS is controlled independently from HTTPS server authentication. `OPTIONAL` asks for a client certificate when available, while `REQUIRED` rejects clients that do not present a trusted certificate. Enabling either mode requires an explicit client trust source:
+Mutual TLS requires explicit trust material:
 
 ```java
-final SslOptions sslOptions = new SslOptions.Builder()
-    .setKeyStoreFile("certificate.p12")
+final SslOptions ssl = new SslOptions.Builder()
+    .setKeyStoreFile("server.p12")
     .setPassword(serverPassword)
-    .setTrustCertificatesFile("client-ca-chain.pem")
+    .setTrustCertificatesFile("client-ca.pem")
     .setClientAuthentication(SslClientAuthentication.REQUIRED)
     .build();
 ```
 
-Client trust can alternatively come from a PKCS #12 or JKS trust store through `setTrustStoreFile`, `setTrustStorePassword`, and `setTrustStoreType`. The JVM's ambient default trust store is never used to authorize client certificates: mTLS requires an explicit application choice.
+A PKCS #12 or JKS trust store can be used instead. The JVM's ambient default
+trust store is never used to authorize client certificates.
 
-`SslOptions.Builder.build()` checks that all selected material exists, is a readable regular file, and that identity and trust sources are complete and unambiguous. Password, certificate, private-key, trust-store, protocol, cipher, and TLS initialization errors are reported by `Server.start()` with their security-specific cause included in the message.
+Run separate server instances on different ports when both HTTP and HTTPS are
+required. They may share the same handler.
 
-TLS protects request and response bytes in transit after a successful handshake. It does not authenticate application users, validate authorization rules, secure files or passwords on the host, make forwarded proxy headers trustworthy, or replace certificate rotation and endpoint hardening. When TLS terminates at a reverse proxy, bind this server to the intended private interface and enforce the public TLS policy at that proxy as well.
+## Configuration
 
-If no `SslOptions` are supplied, the server uses ordinary HTTP. There is no separate HTTPS server API and no `sslEnabled` flag to keep synchronized with the actual configuration.
+All `Options` instances are immutable. Defaults are intentionally usable for a
+small server:
 
-## Server Options
+| Option | Default | Meaning |
+| --- | ---: | --- |
+| `port` | `8000` | listening port; `0` selects a free port |
+| `bindAddress` | all local addresses | local interface |
+| `backlog` | `50` | requested OS accept-queue length |
+| `wwwRoot` | `www` | static-file root |
+| `maxRequestSize` | 128 MiB | complete request limit |
+| `maxFileSize` | 128 MiB | per uploaded-file limit |
+| `maxInMemoryBodySize` | 64 KiB | body memory threshold |
+| `maxFormSize` | 1 MiB | decoded form-data limit |
+| `maxMultipartParts` | `1000` | number of multipart parts |
+| `maxMultipartHeaderSize` | 16 KiB | headers of one multipart part |
+| `maxHeaderSize` | 64 KiB | HTTP request line and headers |
+| `maxWorkers` | `100` | concurrently processed connections |
+| `readTimeout` | 30 seconds | wait for request data |
+| `writeTimeout` | 30 seconds | write and flush one response |
+| `handlerTimeout` | 30 seconds | handler execution |
+| `handler` | static files | application behavior |
+| `errorPage` | built-in HTML | generated error pages |
+| `sslOptions` | disabled | HTTPS configuration |
 
-Server behavior is configured through `Options.Builder`. All settings have defaults, so applications only need to specify values they actually want to change.
-
-A more extensively configured server might look like this:
+Example:
 
 ```java
 final Options options = new Options.Builder()
     .setPort(8080)
+    .setBindAddress(InetAddress.getLoopbackAddress())
+    .setBacklog(128)
     .setWwwRoot("public")
     .setMaxWorkers(200)
+    .setMaxRequestSize(32L * 1024L * 1024L)
+    .setMaxFileSize(16L * 1024L * 1024L)
+    .setMaxInMemoryBodySize(64L * 1024L)
+    .setMaxFormSize(1024L * 1024L)
+    .setMaxMultipartParts(100)
+    .setMaxMultipartHeaderSize(16L * 1024L)
+    .setMaxHeaderSize(64L * 1024L)
     .setReadTimeout(Duration.ofSeconds(15))
     .setWriteTimeout(Duration.ofSeconds(15))
-    .setHandlerTimeout(Duration.ofSeconds(10))
+    .setHandlerTimeout(Duration.ofSeconds(5))
     .setHandler(handler)
-    .setErrorPage(errorPage)
     .build();
 ```
 
-The main configuration options include:
-
-| Option                    | Purpose                                                     |
-| ------------------------- | ----------------------------------------------------------- |
-| `port`                    | TCP port on which the server listens                        |
-| `bindAddress`             | Local address on which the server listens                   |
-| `backlog`                 | Requested operating-system accept queue size                |
-| `wwwRoot`                 | Root directory used for static files                        |
-| `maxRequestSize`          | Maximum size of a complete HTTP request                     |
-| `maxFileSize`             | Maximum size of an individual uploaded file                 |
-| `maxInMemoryBodySize`     | Largest declared body stored in memory                      |
-| `maxFormSize`             | Maximum decoded non-file form data                          |
-| `maxMultipartParts`       | Maximum number of multipart fields and files                |
-| `maxMultipartHeaderSize`  | Maximum header size of each multipart part                  |
-| `maxHeaderSize`           | Maximum size of HTTP headers                                |
-| `maxWorkers`              | Maximum number of client connections processed concurrently |
-| `readTimeout`             | Maximum time the server waits for additional request data   |
-| `writeTimeout`            | Maximum time allowed for writing one complete response      |
-| `handlerTimeout`          | Maximum time allowed for application request handling       |
-| `handler`                 | Application-specific request handler                        |
-| `errorPage`               | Generator used for standard HTML error pages                |
-| `sslOptions`              | SSL/TLS configuration; absent for ordinary HTTP             |
-
-For example, limits can be adjusted for an application that accepts larger uploads:
-
-```java
-final Options options = new Options.Builder()
-    .setMaxRequestSize(256 * 1024 * 1024)
-    .setMaxFileSize(128 * 1024 * 1024)
-    .setMaxInMemoryBodySize(64 * 1024)
-    .setMaxFormSize(1024 * 1024)
-    .setMaxMultipartParts(1000)
-    .setMaxMultipartHeaderSize(16 * 1024)
-    .build();
-```
-
-Connection and handler timeouts use `Duration`, making their meaning explicit:
-
-```java
-final Options options = new Options.Builder()
-    .setReadTimeout(Duration.ofSeconds(20))
-    .setWriteTimeout(Duration.ofSeconds(20))
-    .setHandlerTimeout(Duration.ofSeconds(5))
-    .build();
-```
-
-`maxWorkers` limits the number of connections actively processed at the same time. Persistent HTTP connections occupy a worker for their lifetime, so the limit also prevents large numbers of idle or slow clients from consuming server resources without bound.
-
-By default, the server binds to the wildcard address and is therefore reachable
-through every local network interface allowed by the host firewall. Applications
-that are intended to be reached only through a reverse proxy on the same host
-should bind explicitly to a loopback address:
-
-```java
-final Options options = new Options.Builder()
-    .setBindAddress(InetAddress.getLoopbackAddress())
-    .build();
-```
-
-`backlog` is a request to the operating system for the maximum number of TCP
-connections waiting to be accepted. The operating system may cap or otherwise
-adjust it. It is separate from `maxWorkers`: when all workers are occupied, new
-connections remain in the operating-system accept queue until worker capacity is
-available. Stopping the server remains responsive while the worker limit is
-saturated.
-
-Most applications should start with the defaults and change individual settings only when there is a concrete reason to do so. Configuration options are limits and behavior controls, not a checklist that must be ceremonially filled out before the server agrees to function.
-
-## Custom Error Pages
-
-The server provides default HTML pages for errors such as `404 Not Found`, `403 Forbidden`, and `500 Internal Server Error`.
-
-Their appearance can be replaced without changing the HTTP error handling itself. A custom error page is defined through the `ErrorPage` interface.
-
-An error page receives the HTTP status code, its reason, and an explanatory message, and returns HTML:
-
-```java
-final ErrorPage errorPage = (code, reason, message) ->
-    """
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>%d %s</title>
-        </head>
-        <body>
-            <h1>%d %s</h1>
-            <p>%s</p>
-        </body>
-    </html>
-    """.formatted(
-        code,
-        reason,
-        code,
-        reason,
-        message
-    );
-```
-
-It can then be installed through the server options:
-
-```java
-final Options options = new Options.Builder()
-    .setErrorPage(errorPage)
-    .build();
-```
-
-The configured page is used by standard server-generated error responses. Application code can continue to return ordinary responses:
-
-```java
-return environment
-    .getResponseFactory()
-    .notFound();
-```
-
-The HTTP semantics remain unchanged. A customized `404` page is still returned with the `404 Not Found` status, and an internal server error remains `500 Internal Server Error`. `ErrorPage` controls presentation, not protocol behavior.
-
-This makes it possible to give error pages the same appearance as the rest of an application without requiring every handler to construct its own error responses.
-
-### Running HTTP and HTTPS Together
-
-If an application needs to accept both HTTP and HTTPS connections, simply start two server instances on different ports and give them the same handler:
-
-```java
-final Handler handler = (request, environment) ->
-    environment
-        .getResponseFactory()
-        .fromText("Hello, world!")
-        .build();
-
-final Server httpServer = Server.start(
-    new Options.Builder()
-        .setPort(8080)
-        .setHandler(handler)
-        .build()
-);
-
-final Server httpsServer = Server.start(
-    new Options.Builder()
-        .setPort(8443)
-        .setHandler(handler)
-        .setSslOptions(sslOptions)
-        .build()
-);
-````
-
-Both servers are completely independent at the transport level while sharing the same application logic. There is no special dual-protocol mode to configure: one server listens for HTTP, another listens for HTTPS, and both use the same `Handler`.
-
-## Connections, Limits, and Timeouts
-
-The server is designed to keep connection management predictable while protecting itself from clients that are slow, idle, malformed, or simply determined to consume resources forever.
-
-### Persistent Connections
-
-HTTP persistent connections are supported automatically.
-
-For HTTP/1.1, connections are persistent by default. A client can explicitly request that the connection be closed:
-
-```http
-Connection: close
-````
-
-For HTTP/1.0, connections are closed by default and can be kept open explicitly:
-
-```http
-Connection: keep-alive
-```
-
-The response mirrors the resulting transport decision: a connection that will
-close carries `Connection: close`, while an accepted HTTP/1.0 persistent
-connection carries `Connection: keep-alive`. HTTP/1.1 persistent responses do
-not need a `Connection` header. If a request contains both options, `close`
-takes precedence.
-
-A persistent connection can carry multiple requests sequentially. Each request is parsed and processed independently while the underlying TCP connection remains open.
-
-Application handlers do not need to manage any of this. They receive one `Request` at a time and return one `Response`.
-
-### Worker Limit
-
-Each active client connection is processed by a worker. The maximum number of simultaneously active workers can be configured:
-
-```java
-final Options options = new Options.Builder()
-    .setMaxWorkers(200)
-    .build();
-```
-
-The limit applies to connections rather than individual HTTP requests. A persistent connection therefore occupies its worker until the connection is closed.
-
-This provides a simple upper bound on the amount of concurrent connection processing performed by the server.
-
-### Read Timeout
-
-A client is not allowed to keep a connection occupied indefinitely while sending no data or only part of a request.
-
-The read timeout controls how long the server waits for additional request data:
-
-```java
-final Options options = new Options.Builder()
-    .setReadTimeout(Duration.ofSeconds(15))
-    .build();
-```
-
-If the timeout expires while the server is waiting for request data, the connection is closed.
-
-### Write Timeout
-
-A client that stops reading a response is not allowed to occupy a worker indefinitely either:
-
-```java
-final Options options = new Options.Builder()
-    .setWriteTimeout(Duration.ofSeconds(15))
-    .build();
-```
-
-The timeout covers writing and flushing one complete response. If it expires, the server closes the client connection immediately. The worker then returns to the pool and can process another connection; no error response is attempted on the connection that has already stopped consuming output.
-
-### Handler Timeout
-
-Application code is also given a configurable execution limit:
-
-```java
-final Options options = new Options.Builder()
-    .setHandlerTimeout(Duration.ofSeconds(5))
-    .build();
-```
-
-If a handler does not complete within that period, the server stops waiting for it and generates an error response.
-
-The timeout prevents a slow or malfunctioning handler from occupying a worker indefinitely. As with normal Java thread interruption, application code should cooperate with interruption when performing long-running operations.
-
-### Size Limits
-
-Several independent limits protect request processing:
-
-```java
-final Options options = new Options.Builder()
-    .setMaxHeaderSize(64 * 1024)
-    .setMaxRequestSize(128 * 1024 * 1024)
-    .setMaxFileSize(32 * 1024 * 1024)
-    .build();
-```
-
-The header limit restricts HTTP header data, the request limit restricts the complete incoming request, and the file limit applies independently to each uploaded file.
-
-These limits are deliberately separate. An application may, for example, accept a large multipart request containing several reasonably sized files without allowing a single uploaded file to consume the entire permitted request size.
-
-## HTTP Support
-
-Foundry19 Web Server implements the parts of HTTP needed for straightforward web applications while deliberately avoiding unnecessary protocol machinery in the public API.
-
-### HTTP Versions
-
-The server supports:
-
-* **HTTP/1.0**
-* **HTTP/1.1**
-
-The HTTP version is parsed from each request and used when generating the corresponding response.
-
-Persistent connection behavior follows the version of the incoming request: HTTP/1.1 uses persistent connections by default, while HTTP/1.0 closes them by default unless keep-alive is explicitly requested.
-
-### Request Methods
-
-The server supports ordinary HTTP requests including `GET` and `POST`.
-
-Method names are parsed as case-sensitive HTTP tokens. A valid but unsupported
-method receives `501 Not Implemented`; malformed method syntax receives
-`400 Bad Request`.
-
-`GET` requests can contain URL query parameters:
-
-```http
-GET /search?q=java HTTP/1.1
-```
-
-`POST` requests can contain raw request bodies, URL-encoded forms, or multipart form data including uploaded files.
-
-### Request Bodies
-
-Request bodies with a known content length are read according to the `Content-Length` header. The server respects the exact request boundary, which is particularly important for persistent connections where another HTTP request may immediately follow the current request body. Every body is exposed as `UploadedData`; small bodies use memory and larger bodies use temporary-file storage according to `maxInMemoryBodySize`.
-
-`Content-Length` accepts decimal digits only. Requests that combine it with
-`Transfer-Encoding` are rejected as ambiguous, and unsupported transfer
-codings receive `501 Not Implemented`. HTTP/1.1 clients may use
-`Expect: 100-continue`; other expectations receive `417 Expectation Failed`.
-
-URL-encoded form data is parsed automatically:
-
-```http
-Content-Type: application/x-www-form-urlencoded
-```
-
-Multipart forms and file uploads are also supported:
-
-```http
-Content-Type: multipart/form-data; boundary=...
-```
-
-Unknown content types can still be handled as binary request data.
-
-### Headers and Cookies
-
-HTTP headers are parsed and made available through the request API. Repeated header and parameter values are preserved where appropriate.
-
-Incoming `Cookie` headers are parsed into structured cookie values, while response cookies can be generated through `ResponseBuilder`.
-
-Response framing, content metadata, and connection headers are generated from
-the actual response and transport decision. Application code cannot override
-them with conflicting custom values.
-
-### Static Content
-
-Static files can be served directly from the configured web root. Their content type is determined from the file extension, while unknown file types are treated as binary content.
-
-Missing files produce `404 Not Found`, while directories and inaccessible files produce `403 Forbidden`.
-
-### Deliberate Scope
-
-The server is intentionally focused on conventional HTTP/1.0 and HTTP/1.1 request-response processing. It is not intended to implement every protocol and extension that has accumulated around HTTP over the decades.
-
-Features outside the current scope should not be assumed to be supported unless explicitly documented.
-
-This limited scope is intentional: the library aims to provide a small and understandable HTTP server rather than gradually evolving into an application server whose configuration manual weighs more than the application using it.
-
-## Examples
-
-The following examples show several common ways to use the server. They are deliberately small: application code should describe application behavior, not spend half its life negotiating with the web framework.
-
-### A Complete Minimal Application
-
-The following program starts an HTTP server on port `8080` and handles a small API while leaving all other requests to the server's static file handling:
-
-```java
-import com.kniazkov.webserver.Handler;
-import com.kniazkov.webserver.Options;
-import com.kniazkov.webserver.ResponseFactory;
-import com.kniazkov.webserver.Server;
-
-public final class Main {
-
-    public static void main(final String[] args) throws Exception {
-        final Handler handler = (request, environment) -> {
-            final ResponseFactory factory =
-                environment.getResponseFactory();
-
-            if (request.getPath().getFullPath().equals("/api/status")) {
-                return factory
-                    .fromJson("{\"status\":\"ok\"}")
-                    .build();
-            }
-
-            return factory.noResponse();
-        };
-
-        final Options options = new Options.Builder()
-            .setPort(8080)
-            .setWwwRoot("public")
-            .setHandler(handler)
-            .build();
-
-        final Server server = Server.start(options);
-    }
-}
-````
-
-A request to:
-
-```text
-http://localhost:8080/api/status
-```
-
-is handled by application code.
-
-A request such as:
-
-```text
-http://localhost:8080/index.html
-```
-
-falls through to the default handler and is resolved relative to the configured `public` directory.
-
-### Reading Query Parameters
-
-Query parameters are already decoded and grouped by name when the handler receives the request:
-
-```java
-final Handler handler = (request, environment) -> {
-    final ResponseFactory factory =
-        environment.getResponseFactory();
-
-    if (!request.getPath().getFullPath().equals("/hello")) {
-        return factory.noResponse();
-    }
-
-    final String name = request
-        .getQuery()
-        .getOrDefault("name", List.of("World"))
-        .getFirst();
-
-    return factory
-        .fromText("Hello, " + name + "!")
-        .build();
-};
-```
-
-A request to:
-
-```text
-/hello?name=Ivan
-```
-
-produces:
-
-```text
-Hello, Ivan!
-```
-
-while `/hello` produces `Hello, World!`.
-
-### Processing a POST Form
-
-URL-encoded form fields are available through the request without manually reading or decoding the body:
-
-```java
-final Handler handler = (request, environment) -> {
-    final ResponseFactory factory =
-        environment.getResponseFactory();
-
-    if (!request.getPath().getFullPath().equals("/login")) {
-        return factory.noResponse();
-    }
-
-    final String username = request
-        .getForm()
-        .getOrDefault("username", List.of(""))
-        .getFirst();
-
-    return factory
-        .fromJson(
-            """
-            {"user":"%s"}
-            """.formatted(username)
-        )
-        .build();
-};
-```
-
-For a request containing:
-
-```text
-username=Ivan
-```
-
-the form parser has already converted the body into structured values before the handler is invoked.
-
-### Handling an Uploaded File
-
-Multipart uploads follow the same model:
-
-```java
-final Handler handler = (request, environment) -> {
-    final ResponseFactory factory =
-        environment.getResponseFactory();
-
-    final List<UploadedFile> files =
-        request.getFiles().get("file");
-
-    if (files == null || files.isEmpty()) {
-        return factory
-            .fromText("No file uploaded")
-            .build();
-    }
-
-    final UploadedFile file = files.getFirst();
-
-    return factory
-        .fromText(
-            "Received: " + file.getName()
-        )
-        .build();
-};
-```
-
-Multipart parsing, boundaries, disposition headers, and binary body handling are performed before application code sees the request. Call `openStream()`, `transferTo(...)`, or `readAllBytes()` while the handler is running; temporary upload storage is released when the handler completes.
-
-### Returning Different Response Types
-
-The same handler can return different kinds of content:
-
-```java
-final Handler handler = (request, environment) -> {
-    final ResponseFactory factory =
-        environment.getResponseFactory();
-
-    return switch (request.getPath().getFullPath()) {
-        case "/text" ->
-            factory
-                .fromText("Plain text")
-                .build();
-
-        case "/html" ->
-            factory
-                .fromHtml("<h1>Hello!</h1>")
-                .build();
-
-        case "/json" ->
-            factory
-                .fromJson("{\"message\":\"Hello!\"}")
-                .build();
-
-        default ->
-            factory.noResponse();
-    };
-};
-```
-
-The appropriate content type is selected by the response factory.
-
-### Combining an API with Static Files
-
-One of the simplest useful configurations is to handle `/api/...` in Java and serve everything else from disk:
-
-```java
-final Handler handler = (request, environment) -> {
-    final ResponseFactory factory =
-        environment.getResponseFactory();
-
-    if (request.getPath().getFullPath().equals("/api/version")) {
-        return factory
-            .fromJson("{\"version\":\"2.0.0\"}")
-            .build();
-    }
-
-    if (request.getPath().getFullPath().equals("/api/health")) {
-        return factory
-            .fromText("OK")
-            .build();
-    }
-
-    return factory.noResponse();
-};
-
-final Server server = Server.start(
-    new Options.Builder()
-        .setPort(8080)
-        .setWwwRoot("public")
-        .setHandler(handler)
-        .build()
-);
-```
-
-With a directory such as:
-
-```text
-public/
-├── index.html
-├── application.js
-├── styles.css
-└── images/
-    └── logo.png
-```
-
-the same server can provide both application endpoints and ordinary web resources:
-
-```text
-/api/version        -> handled by Java code
-/api/health         -> handled by Java code
-/                   -> default static-file processing
-/index.html         -> public/index.html
-/styles.css         -> public/styles.css
-/images/logo.png    -> public/images/logo.png
-```
-
-The handler only handles what belongs to the application. Everything else can remain the server's problem, which is generally a healthier division of labor.
+The worker limit applies to connections, not individual requests. A persistent
+connection occupies one worker until it closes. Connections waiting for a
+worker remain in the operating-system accept queue. Handler timeouts use Java
+thread interruption, so long-running application code must cooperate with
+interruption.
+
+Binding to all local addresses is the default. Bind explicitly to a loopback
+address when the server should be reachable only from the same host or through
+a local reverse proxy.
+
+## HTTP Behavior and Scope
+
+- HTTP/1.1 connections are persistent unless `Connection: close` is present.
+- HTTP/1.0 connections close unless `Connection: keep-alive` is accepted.
+- `Content-Length` accepts decimal digits only.
+- requests containing both `Content-Length` and `Transfer-Encoding` are
+  rejected as ambiguous.
+- unsupported transfer codings receive `501 Not Implemented`.
+- `Expect: 100-continue` is supported; other expectations receive
+  `417 Expectation Failed`.
+- response framing and connection headers are generated by the server.
+- valid but unsupported methods receive `501 Not Implemented`; malformed method
+  tokens receive `400 Bad Request`.
+
+The current public API supports HTTP/1.0 and HTTP/1.1, GET and POST, and
+content-length-framed request bodies. HTTP/2, HTTP/3, WebSocket upgrades, and
+chunked request bodies are outside the current scope.
 
 ## Building and Testing
 
-The project is built with Maven and requires Java 21.
-
-To compile the project and run the complete test suite:
-
-```bash
-mvn test
-````
-
-To create the library package:
+Compile the project, run unit tests, build artifacts, generate Javadocs, and run
+Checkstyle with:
 
 ```bash
-mvn package
+mvn verify
 ```
 
-The test suite covers the individual protocol components as well as their interaction at higher levels. This includes request parsing, headers, forms, multipart uploads, files, responses, persistent connections, timeouts, worker limits, and real TCP socket communication.
-
-The project also uses end-to-end tests to verify the server as a complete system from the perspective of an actual client.
-
-Tests are run automatically by the project's continuous integration workflow, so changes are checked against the complete test suite before being accepted.
-
-### End-to-End Tests
-
-End-to-end tests use Playwright and a real Chromium browser. Before running them for the first time, install the Chromium version required by Playwright:
+End-to-end tests use Playwright and Chromium. Install the matching browser once
+after cloning or after a Playwright upgrade:
 
 ```bash
-mvn exec:java -e "-Dexec.mainClass=com.microsoft.playwright.CLI" "-Dexec.args=install chromium" "-Dexec.classpathScope=test"
+mvn exec:java -e \
+  "-Dexec.mainClass=com.microsoft.playwright.CLI" \
+  "-Dexec.args=install chromium" \
+  "-Dexec.classpathScope=test"
 ```
 
-The browser installation only needs to be repeated when required by a Playwright upgrade.
-
-To run the complete test suite, including end-to-end tests:
+Then run the complete local gate, including unit and end-to-end tests:
 
 ```bash
 mvn verify -Pe2e
 ```
 
-## Project Status and License
+CI runs that complete command for every pull request and every push to
+`master`. `mvn test` runs only unit tests; it is not the complete project gate.
 
-Foundry19 Web Server 2.x is the second generation of the library and represents a substantial redesign of its API and internal architecture.
+## Project Documentation
 
-The project targets Java 21 and focuses on providing a compact HTTP/HTTPS server for applications that need direct and understandable control over request handling without introducing a full web framework.
+- [Changelog](CHANGELOG.md)
+- [Code style](CODE_STYLE.md)
+- [Release process](RELEASING.md)
+- [Security policy](SECURITY.md)
+- [MIT License](LICENSE)
 
-The public API is intentionally kept small. New functionality should extend that model rather than turn the library into an application framework with its own opinions about how the rest of the program must be structured.
-
-As the project evolves, compatibility and behavior changes will be documented with each release.
-
-### License
-
-This project is licensed under the MIT License.
-
-See the `LICENSE` file in the project repository for the complete license terms.
+[build-badge]: https://github.com/kniazkov/webserver/actions/workflows/build.yml/badge.svg
+[build]: https://github.com/kniazkov/webserver/actions/workflows/build.yml
+[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+[license]: LICENSE
+[java-badge]: https://img.shields.io/badge/Java-21-orange.svg
+[java]: https://openjdk.org/projects/jdk/21/

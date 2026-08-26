@@ -47,7 +47,7 @@
             scm:git:ssh://git@github.com/kniazkov/webserver.git
         </developerConnection>
         <url>https://github.com/kniazkov/webserver</url>
-        <tag>HEAD</tag>
+        <tag>v2.0.0</tag>
     </scm>
 
     <properties>
@@ -66,6 +66,7 @@
         <source-plugin.version>3.3.1</source-plugin.version>
         <javadoc-plugin.version>3.11.2</javadoc-plugin.version>
         <gpg-plugin.version>3.2.7</gpg-plugin.version>
+        <central-plugin.version>0.11.0</central-plugin.version>
     </properties>
 
     <dependencies>
@@ -231,6 +232,18 @@
 
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                        </configuration>
+                    </plugin>
+
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
