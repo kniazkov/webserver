@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Ivan Kniazkov
+ */
+
 package com.kniazkov.webserver;
 
 import java.util.List;

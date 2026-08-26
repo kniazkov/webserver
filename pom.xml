@@ -60,6 +60,8 @@
         <surefire.version>3.5.4</surefire.version>
         <failsafe.version>3.5.4</failsafe.version>
         <build-helper.version>3.6.1</build-helper.version>
+        <compiler-plugin.version>3.15.0</compiler-plugin.version>
+        <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
 
         <source-plugin.version>3.3.1</source-plugin.version>
         <javadoc-plugin.version>3.11.2</javadoc-plugin.version>
@@ -84,6 +86,49 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${compiler-plugin.version}</version>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:all,-try</arg>
+                        <arg>-Werror</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${checkstyle-plugin.version}</version>
+                <configuration>
+                    <configLocation>config/checkstyle.xml</configLocation>
+                    <headerLocation>config/license-header.txt</headerLocation>
+                    <includeResources>false</includeResources>
+                    <includeTestResources>false</includeTestResources>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                    </sourceDirectories>
+                    <testSourceDirectories>
+                        <testSourceDirectory>${project.build.testSourceDirectory}</testSourceDirectory>
+                        <testSourceDirectory>${project.basedir}/src/e2e/java</testSourceDirectory>
+                    </testSourceDirectories>
+                    <failOnViolation>true</failOnViolation>
+                    <violationSeverity>warning</violationSeverity>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>check-code-style</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

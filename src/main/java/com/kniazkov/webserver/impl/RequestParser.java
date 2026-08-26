@@ -146,8 +146,10 @@ final class RequestParser {
                 .getStatus()
                 .orElse(HttpStatus.BAD_REQUEST);
 
-            // Parser diagnostics can contain request data. Keep them as the
-            // server-side cause and expose only the standard status reason.
+            /*
+             * Parser diagnostics can contain request data. Keep them as the
+             * server-side cause and expose only the standard status reason.
+             */
             throw new ServerException(
                 status,
                 status.getReason(),

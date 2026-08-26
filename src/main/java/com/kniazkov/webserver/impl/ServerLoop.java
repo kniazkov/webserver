@@ -228,7 +228,9 @@ final class ServerLoop {
         try {
             socket.close();
         } catch (IOException ignored) {
-            // Nothing useful can be done here.
+            /*
+             * Nothing useful can be done here.
+             */
         }
     }
 }

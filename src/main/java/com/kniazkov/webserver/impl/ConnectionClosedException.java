@@ -15,6 +15,11 @@ import com.kniazkov.webserver.ServerException;
 final class ConnectionClosedException extends ServerException {
 
     /**
+     * The serialization version.
+     */
+    private static final long serialVersionUID = 1L;
+
+    /**
      * Creates an exception indicating that the connection was closed.
      */
     ConnectionClosedException() {

@@ -143,9 +143,13 @@ final class Worker implements Runnable {
                 }
             }
         } catch (SocketTimeoutException exception) {
-            // The client stopped sending data. Close the connection.
+            /*
+             * The client stopped sending data. Close the connection.
+             */
         } catch (IOException | ServerException exception) {
-            // Connection-level failure. Logging will belong here.
+            /*
+             * Connection-level failure. Logging will belong here.
+             */
         }
     }
 

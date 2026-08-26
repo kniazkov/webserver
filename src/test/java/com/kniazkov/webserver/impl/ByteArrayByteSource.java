@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Ivan Kniazkov
+ */
+
 package com.kniazkov.webserver.impl;
 
 /**
@@ -14,7 +18,6 @@ final class ByteArrayByteSource implements ByteSource {
      * The current position.
      */
     private int position;
-
 
     /**
      * Creates a byte source from the specified array.

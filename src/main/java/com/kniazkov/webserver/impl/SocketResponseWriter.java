@@ -87,7 +87,9 @@ final class SocketResponseWriter {
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
                 } catch (IOException ignored) {
-                    // The worker will observe the connection failure.
+                    /*
+                     * The worker will observe the connection failure.
+                     */
                 }
             }
         );
